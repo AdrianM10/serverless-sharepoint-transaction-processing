@@ -9,7 +9,7 @@ from azure.mgmt.storage import StorageManagementClient
 def main():
 
     credential = DefaultAzureCredential()
-    subscription_id = os.environ["AZURE_SUBSCRIPTION_ID"]
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID")
     rg_name = "rg-sp-txn-tf-backend"
     location = "southafricanorth"
     storage_account_name = "sptxntfstr"
