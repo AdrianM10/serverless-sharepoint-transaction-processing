@@ -31,11 +31,11 @@ jobs:
                   cache: "pip"
 
             - name: Install Python dependencies
-              working-directory: "./Remote Backend Setup"
+              working-directory: ./Remote Backend Setup
               run: |
                   pip install -r requirements.txt
 
             - name: Deploy Terraform backend
-              working-directory: "./Remote Backend Setup"
+              working-directory: ./Remote Backend Setup
               run: |
                   python deploy_tf_remote_backend.py
