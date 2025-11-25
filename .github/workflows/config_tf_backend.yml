@@ -1,45 +1,38 @@
 name: Deploy terraform backend
 
 on:
-    workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
-    id-token: write
-    contents: read
+  id-token: write
+  contents: read
 
 jobs:
-    deploy-tf-backend:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
-            - name: Azure login
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  deploy-tf-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Azure CLI script
-              uses: azure/cli@v2
-              with:
-                  azcliversion: latest
-                  inlineScript: |
-                      az account show
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
 
-            - name: Setup Python
-              uses: actions/setup-python@v6
-              with:
-                  python-version: "3.13"
-                  cache: "pip"
+      - name: Install Python dependencies
+        working-directory: ./remote_ backend_setup
+        run: |
+          pip install -r requirements.txt
 
-            - name: Install Python dependencies
-              working-directory: ./remote_ backend_setup
-              run: |
-                  pip install -r requirements.txt
-
-            - name: Deploy Terraform backend
-              working-directory: ./remote_ backend_setup
-              env: 
-                AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-              run: |
-                  python deploy_tf_remote_backend.py
+      - name: Deploy Terraform backend
+        working-directory: ./remote_ backend_setup
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          python deploy_tf_remote_backend.py
