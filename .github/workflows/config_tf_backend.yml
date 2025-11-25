@@ -20,6 +20,22 @@ jobs:
             - name: Azure CLI script
               uses: azure/cli@v2
               with:
-                azcliversion: latest
-                inlineScript: |
-                    az account show
+                  azcliversion: latest
+                  inlineScript: |
+                      az account show
+
+            - name: Setup Python
+              uses: actions/setup-python@v6
+              with:
+                  python-version: "3.13"
+                  cache: "pip"
+
+            - name: Install Python dependencies
+              working-directory: "./Remote Backend Setup"
+              run: |
+                  pip install -r requirements.txt
+
+            - name: Deploy Terraform backend
+              working-directory: "./Remote Backend Setup"
+              run: |
+                  python deploy_tf_remote_backend.py
