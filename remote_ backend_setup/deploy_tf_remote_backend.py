@@ -94,6 +94,7 @@ def provision_storage_account(
             rg_name, storage_account_name, container_name, {}
         )
         logging.info(f"Provisioned blob container: {container_name}")
+        logging.info(container)
 
     except Exception as e:
         logging.exception(f"An error occurred creating blob container: {e}")
