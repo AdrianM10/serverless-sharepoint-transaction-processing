@@ -26,12 +26,12 @@ jobs:
           cache: "pip"
 
       - name: Install Python dependencies
-        working-directory: ./remote_ backend_setup
+        working-directory: ./remote_backend_setup
         run: |
           pip install -r requirements.txt
 
       - name: Deploy Terraform backend
-        working-directory: ./remote_ backend_setup
+        working-directory: ./remote_backend_setup
         env:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
