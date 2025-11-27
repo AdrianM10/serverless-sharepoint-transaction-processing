@@ -6,7 +6,7 @@ from sqlmodel import SQLModel
 
 from alembic import context
 
-from models import Cards, Transactions
+from models import Cards, Transactions, Users
 
 import os
 
