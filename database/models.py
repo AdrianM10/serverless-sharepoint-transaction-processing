@@ -9,7 +9,7 @@ from sqlmodel import Column, Field, SQLModel, create_engine, select
 
 
 class Cards(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     client_id: int
     card_brand: str
     card_type: str
@@ -25,7 +25,7 @@ class Cards(SQLModel, table=True):
 
 
 class Transactions(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     date: date
     client_id: int = Field(default=None, sa_column=Column(SmallInteger()))
     card_id: int = Field(default=None, sa_column=Column(SmallInteger()))
@@ -39,7 +39,7 @@ class Transactions(SQLModel, table=True):
 
 
 class Users(SQLModel, table=True):
-    id: int = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     current_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
     retirement_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
     birth_year: int | None = Field(default=None, sa_column=Column(SmallInteger()))
