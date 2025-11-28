@@ -1,7 +1,11 @@
+import asyncio
 import logging
 import os
 
 import azure.functions as func
+from azure.identity import ClientSecretCredential, DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+from msgraph import GraphServiceClient
 
 from models import Cards, Transactions, Users
 
@@ -17,5 +21,38 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
         logging.info("The timer is past due!")
 
     logging.info("Simulate ingesting sharepoint file(s)")
+    # Ingest SharePoint file(s)
+    sharepoint_files = asyncio.run(download_sharepoint_files())
 
     logging.info("Python timer trigger function executed.")
+
+
+async def download_sharepoint_files():
+
+    graph_client = generate_graph_client()
+
+
+def generate_graph_client():
+    """Create instance of Microsoft Graph client"""
+
+    try:
+
+        vault_url = os.getenv("vault_url")
+
+        credential = DefaultAzureCredential()
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+        client_id = secret_client.get_secret("sharepoint-client-id").value
+        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
+
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
+        )
+
+        scopes = ["https://graph.microsoft.com/.default"]
+        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+
+        return graph_client
+    except Exception as e:
+        logging.error(f"An error occurred generating graph client: {e}")
