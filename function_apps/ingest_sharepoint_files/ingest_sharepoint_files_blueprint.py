@@ -20,13 +20,25 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */2 * * * *", arg_name="myTimer", run_on_startup=False, use_monitor=False
+    schedule="0 */2 * * * *",
+    arg_name="myTimer",
+    run_on_startup=False,
+    use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
 
     sharepoint_directories = retrieve_sharepoint_directories()
+
+    for sharepoint_directory in sharepoint_directories:
+
+        if sharepoint_directory is not None:
+
+            sharepoint_sub_directories = retrieve_sharepoint_sub_directories(
+                sharepoint_directory)
+
+        logging.info(sharepoint_sub_directories)
 
     # files_metadata = asyncio.run(retrieve_sharepoint_files())
     # logging.info(files_metadata)
@@ -39,6 +51,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
 
 def retrieve_sharepoint_directories():
+    """Retrieve directories in SharePoint site matching yearly pattern i.e 'YE2010'"""
 
     try:
 
@@ -58,13 +71,31 @@ def retrieve_sharepoint_directories():
         pattern = r"^YE\d{4}$"
 
         yearly_directories = asyncio.run(
-            filter_sharepoint_folders(path_relative_to_root, pattern)
+            filter_sharepoint_directories(path_relative_to_root, pattern)
         )
-        
+
         return yearly_directories
     except Exception as e:
         logging.error(
             f"An error occurred retrieving sharepoint directories: {e}")
+
+
+def retrieve_sharepoint_sub_directories(sharepoint_directory):
+    """Retrieve subdirectories matching monthly pattern i.e '201001' """
+
+    try:
+        
+        if sharepoint_directory is not None:
+
+            path_relative_to_root = f"root:/General/{sharepoint_directory}:"
+            pattern = r"^\d{6}$"
+
+            monthly_directories = asyncio.run(
+                filter_sharepoint_directories(path_relative_to_root, pattern))
+            return monthly_directories
+
+    except Exception as e:
+        logging.error(f"An error occurred retrieving sub-directories: {e}")
 
 
 # def retrieve_sharepoint_files():
@@ -127,7 +158,7 @@ def retrieve_sharepoint_directories():
 #         logging.error(f"An error occurred downloading file from SharePoint: {e}")
 
 
-async def filter_sharepoint_folders(path_relative_to_root, pattern):
+async def filter_sharepoint_directories(path_relative_to_root, pattern):
 
     graph_client = generate_graph_client()
 
@@ -148,7 +179,9 @@ async def filter_sharepoint_folders(path_relative_to_root, pattern):
         )
 
         if items and items.value:
+
             for item in items.value:
+
                 if re.match(pattern, item.name):
                     directories.append(item.name)
 
