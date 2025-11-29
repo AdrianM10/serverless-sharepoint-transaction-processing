@@ -151,11 +151,15 @@ def ingest_sharepoint_files(sharepoint_files: list[dict]):
 
         users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
 
-        process_users(sharepoint_file, users)
+        # process_users(sharepoint_file, users)
 
         cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
 
-        process_cards(sharepoint_file, cards)
+        # process_cards(sharepoint_file, cards)
+
+        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+
+        process_transactions(sharepoint_file, transactions)
 
 
 def process_users(sharepoint_file: dict, users: dict):
@@ -219,8 +223,39 @@ def process_cards(sharepoint_file, cards):
             upsert_record(row_data, sharepoint_file, model)
 
         except Exception as e:
-            logging.error(f"An error occurred processing cards: {e}")
+            logging.error(
+                f"An error occurred processing {row["id"]} card record from cards sheet: {e}"
+            )
             continue
+
+
+def process_transactions(sharepoint_file, transactions):
+    """Process rows from transactions sheet in xlsx file"""
+
+    for index, row in transactions.iterrows():
+        try:
+
+            row_data = {
+                "id": row["id"],
+                "date": row["date"],
+                "client_id": row["client_id"],
+                "card_id": row["card_id"],
+                "amount": row["amount"],
+                "use_chip": row["use_chip"],
+                "merchant_id": row["merchant_id"],
+                "merchant_city": row["merchant_city"],
+                "merchant_state": row["merchant_state"],
+                "zip": row["zip"],
+                "mcc": row["mcc"],
+                "errors": row["errors"],
+            }
+
+            model = Transactions
+
+            upsert_record(row_data, sharepoint_file, model)
+
+        except Exception as e:
+            logging.error(f"An error occurred processing")
 
 
 def upsert_record(row_data: dict, sharepoint_file: dict, model):
@@ -247,7 +282,7 @@ def upsert_record(row_data: dict, sharepoint_file: dict, model):
             session.commit()
 
             session.refresh(result)
-            logging.info(f"Processed users data")
+            logging.info(f"Processed {model} data")
 
     except Exception as e:
         logging.error(f"An error occurred inserting record: {e}")
