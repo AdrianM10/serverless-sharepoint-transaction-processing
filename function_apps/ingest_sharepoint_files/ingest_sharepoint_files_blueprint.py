@@ -5,11 +5,14 @@ import os
 import tempfile
 
 import azure.functions as func
+import pandas as pd
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
+from sqlalchemy import text
+from sqlmodel import Session
 
-from models import Cards, Transactions, Users
+from models import Cards, Transactions, Users, engine, select
 
 ingest_sp_bp = func.Blueprint()
 
@@ -26,6 +29,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     logging.info(files_metadata)
 
     sharepoint_files = asyncio.run(download_sharepoint_files(files_metadata))
+
+    ingest_sharepoint_files(sharepoint_files)
 
     logging.info("Python timer trigger function executed.")
 
@@ -133,3 +138,72 @@ def generate_graph_client():
         return graph_client
     except Exception as e:
         logging.error(f"An error occurred generating graph client: {e}")
+
+
+def ingest_sharepoint_files(sharepoint_files: list[dict]):
+    """Ingest records from each sheet in xlsx file"""
+
+    for sharepoint_file in sharepoint_files:
+
+        logging.info(sharepoint_file)
+
+        file_path = sharepoint_file["path"]
+
+        users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+
+        process_users(sharepoint_file, users)
+
+
+def process_users(sharepoint_file: dict, users: dict):
+    """Process rows from users sheet in xlsx file-"""
+
+    for index, row in users.iterrows():
+
+        row_data = {
+            "id": row["id"],
+            "current_age": row["current_age"],
+            "retirement_age": row["retirement_age"],
+            "birth_year": row["birth_year"],
+            "birth_month": row["birth_month"],
+            "gender": row["gender"],
+            "address": row["address"],
+            "latitude": row["latitude"],
+            "longitude": row["longitude"],
+            "per_capita_income": row["per_capita_income"],
+            "yearly_income": row["yearly_income"],
+            "total_debt": row["total_debt"],
+            "credit_score": row["credit_score"],
+            "num_credit_cards": row["num_credit_cards"],
+        }
+
+        upsert_users(row_data, sharepoint_file)
+
+
+def upsert_users(row_data: dict, sharepoint_file: dict):
+
+    try:
+
+        with Session(engine) as session:
+
+            name = sharepoint_file["name"]
+            path = sharepoint_file["path"]
+
+            # Check if record exists in table
+            statement = select(Users).where(Users.id == row_data["id"])
+            result = session.exec(statement).first()
+
+            if result is None:
+                result = Users(**row_data)
+
+            # Sync data and update values
+            for key, value in row_data.items():
+                setattr(result, key, value)
+
+            session.add(result)
+            session.commit()
+
+            session.refresh(result)
+            logging.info(f"Processed users data")
+
+    except Exception as e:
+        logging.error(f"An error occurred inserting record: {e}")
