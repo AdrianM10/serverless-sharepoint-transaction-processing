@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import tempfile
+import re
 
 import azure.functions as func
 import pandas as pd
@@ -19,63 +20,114 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */2 * * * *", arg_name="myTimer", run_on_startup=True, use_monitor=False
+    schedule="0 */2 * * * *", arg_name="myTimer", run_on_startup=False, use_monitor=False
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
 
-    files_metadata = asyncio.run(retrieve_sharepoint_files())
-    logging.info(files_metadata)
+    sharepoint_directories = retrieve_sharepoint_directories()
 
-    sharepoint_files = asyncio.run(download_sharepoint_files(files_metadata))
+    # files_metadata = asyncio.run(retrieve_sharepoint_files())
+    # logging.info(files_metadata)
 
-    ingest_sharepoint_files(sharepoint_files)
+    # sharepoint_files = asyncio.run(download_sharepoint_files(files_metadata))
+
+    # ingest_sharepoint_files(sharepoint_files)
 
     logging.info("Python timer trigger function executed.")
 
 
-async def retrieve_sharepoint_files():
-    """Download files from SharePoint Site"""
-
-    graph_client = generate_graph_client()
+def retrieve_sharepoint_directories():
 
     try:
+
+        graph_client = generate_graph_client()
 
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
-
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
-        files_to_download = []
+        logging.info(drive_id)
 
-        items = (
-            await graph_client.drives.by_drive_id(drive_id)
-            .items.by_drive_item_id("root:/General:")
-            .children.get()
+        path_relative_to_root = "root:/General:"
+
+        pattern = r"^YE\d{4}$"
+
+        yearly_directories = asyncio.run(
+            filter_sharepoint_folders(path_relative_to_root, pattern)
         )
-
-        if items and items.value:
-            for item in items.value:
-                file_metadata = {
-                    "id": item.id,
-                    "name": item.name,
-                    "web_url": item.web_url,
-                    "last_modified": item.last_modified_date_time,
-                }
-
-                files_to_download.append(file_metadata)
-
-        return files_to_download
-
+        
+        return yearly_directories
     except Exception as e:
-        logging.error(f"An error occurred downloading file from SharePoint: {e}")
+        logging.error(
+            f"An error occurred retrieving sharepoint directories: {e}")
 
 
-async def download_sharepoint_files(files_metadata):
-    """Download SharePoint files"""
+# def retrieve_sharepoint_files():
+#     """Download files from SharePoint Site"""
+
+#     graph_client = generate_graph_client()
+
+#     try:
+
+#         credential = DefaultAzureCredential()
+
+#         vault_url = os.getenv("vault_url")
+#         secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+#         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
+
+#         path_relative_to_root = "root:/General/YE2010"
+
+#         pattern = r"^YE\d{4}$"
+#         yearly_directories = asyncio.run(
+#             filter_sharepoint_folders(path_relative_to_root, pattern)
+#         )
+#         logging.info(yearly_directories)
+
+#         for yearly_directory in yearly_directories:
+
+#             path_relative_to_root = f"root:/General/YE2010/{yearly_directory}:"
+
+#             pattern = r"^\d{6}$"
+#             monthly_directories = asyncio.run(path_relative_to_root, pattern)
+#             logging.info(f"Monthly directories: {monthly_directories}")
+
+#         # files_to_download = []
+
+#         # for monthly_directory in monthly_directories:
+
+#         #     path_relative_to_root = f"root:/General/YE2010/{yearly_directory}/{monthly_directory}:"
+
+
+#         #     items = (
+#         #         await graph_client.drives.by_drive_id(drive_id)
+#         #         .items.by_drive_item_id(path_relative_to_root)
+#         #         .children.get()
+#         #     )
+
+#         #     if items and items.value:
+#         #         for item in items.value:
+#         #             file_metadata = {
+#         #                 "id": item.id,
+#         #                 "name": item.name,
+#         #                 "web_url": item.web_url,
+#         #                 "last_modified": item.last_modified_date_time,
+#         #             }
+
+#         #             files_to_download.append(file_metadata)
+
+#         # return files_to_download
+
+#     except Exception as e:
+#         logging.error(f"An error occurred downloading file from SharePoint: {e}")
+
+
+async def filter_sharepoint_folders(path_relative_to_root, pattern):
 
     graph_client = generate_graph_client()
 
@@ -86,32 +138,65 @@ async def download_sharepoint_files(files_metadata):
 
     drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
-    file_paths = []
+    directories = []
 
-    for file_metadata in files_metadata:
-        try:
-            drive_item_id = file_metadata["id"]
-            name = file_metadata["name"]
+    try:
+        items = (
+            await graph_client.drives.by_drive_id(drive_id)
+            .items.by_drive_item_id(path_relative_to_root)
+            .children.get()
+        )
 
-            temp_file_path = tempfile.gettempdir()
-            file_path = os.path.join(temp_file_path, name)
+        if items and items.value:
+            for item in items.value:
+                if re.match(pattern, item.name):
+                    directories.append(item.name)
 
-            download = (
-                await graph_client.drives.by_drive_id(drive_id)
-                .items.by_drive_item_id(drive_item_id)
-                .content.get()
-            )
+        logging.info(directories)
+        return directories
 
-            with open(file_path, "wb") as file:
-                file.write(download)
+    except Exception as e:
+        logging.error(f"An error occurred retrieving sharepoint folders: {e}")
 
-            file_data = {"name": name, "path": file_path}
 
-            file_paths.append(file_data)
-        except Exception as e:
-            logging.error(f"An error occurred downloading {name}: {e}")
+# async def download_sharepoint_files(files_metadata):
+#     """Download SharePoint files"""
 
-    return file_paths
+#     graph_client = generate_graph_client()
+
+#     credential = DefaultAzureCredential()
+
+#     vault_url = os.getenv("vault_url")
+#     secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+#     drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
+
+#     file_paths = []
+
+#     for file_metadata in files_metadata:
+#         try:
+#             drive_item_id = file_metadata["id"]
+#             name = file_metadata["name"]
+
+#             temp_file_path = tempfile.gettempdir()
+#             file_path = os.path.join(temp_file_path, name)
+
+#             download = (
+#                 await graph_client.drives.by_drive_id(drive_id)
+#                 .items.by_drive_item_id(drive_item_id)
+#                 .content.get()
+#             )
+
+#             with open(file_path, "wb") as file:
+#                 file.write(download)
+
+#             file_data = {"name": name, "path": file_path}
+
+#             file_paths.append(file_data)
+#         except Exception as e:
+#             logging.error(f"An error occurred downloading {name}: {e}")
+
+#     return file_paths
 
 
 def generate_graph_client():
@@ -122,10 +207,12 @@ def generate_graph_client():
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -133,156 +220,157 @@ def generate_graph_client():
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
         logging.error(f"An error occurred generating graph client: {e}")
 
 
-def ingest_sharepoint_files(sharepoint_files: list[dict]):
-    """Ingest records from each sheet in xlsx file"""
+# def ingest_sharepoint_files(sharepoint_files: list[dict]):
+#     """Ingest records from each sheet in xlsx file"""
 
-    for sharepoint_file in sharepoint_files:
+#     for sharepoint_file in sharepoint_files:
 
-        logging.info(sharepoint_file)
+#         logging.info(sharepoint_file)
 
-        file_path = sharepoint_file["path"]
+#         file_path = sharepoint_file["path"]
 
-        users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+#         users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
 
-        # process_users(sharepoint_file, users)
+#         # process_users(sharepoint_file, users)
 
-        cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+#         cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
 
-        # process_cards(sharepoint_file, cards)
+#         # process_cards(sharepoint_file, cards)
 
-        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+#         transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
-        process_transactions(sharepoint_file, transactions)
-
-
-def process_users(sharepoint_file: dict, users: dict):
-    """Process rows from users sheet in xlsx file"""
-
-    for index, row in users.iterrows():
-
-        try:
-
-            row_data = {
-                "id": row["id"],
-                "current_age": row["current_age"],
-                "retirement_age": row["retirement_age"],
-                "birth_year": row["birth_year"],
-                "birth_month": row["birth_month"],
-                "gender": row["gender"],
-                "address": row["address"],
-                "latitude": row["latitude"],
-                "longitude": row["longitude"],
-                "per_capita_income": row["per_capita_income"],
-                "yearly_income": row["yearly_income"],
-                "total_debt": row["total_debt"],
-                "credit_score": row["credit_score"],
-                "num_credit_cards": row["num_credit_cards"],
-            }
-
-            model = Users
-
-            upsert_record(row_data, sharepoint_file, model)
-        except Exception as e:
-            logging.error(
-                f"An error occurred processing {row["id"]} record from users sheet: {e}"
-            )
-            continue
+#         process_transactions(sharepoint_file, transactions)
 
 
-def process_cards(sharepoint_file, cards):
-    """Process rows from cards sheet in xlsx file"""
+# def process_users(sharepoint_file: dict, users: dict):
+#     """Process rows from users sheet in xlsx file"""
 
-    for index, row in cards.iterrows():
+#     for index, row in users.iterrows():
 
-        try:
+#         try:
 
-            row_data = {
-                "id": row["id"],
-                "client_id": row["client_id"],
-                "card_brand": row["card_brand"],
-                "card_type": row["card_type"],
-                "card_number": row["card_number"],
-                "expires": row["expires"],
-                "cvv": row["cvv"],
-                "has_chip": row["has_chip"],
-                "num_cards_issued": row["num_cards_issued"],
-                "credit_limit": row["credit_limit"],
-                "acct_open_date": row["acct_open_date"],
-                "year_pin_last_changed": row["year_pin_last_changed"],
-                "card_on_dark_web": row["card_on_dark_web"],
-            }
+#             row_data = {
+#                 "id": row["id"],
+#                 "current_age": row["current_age"],
+#                 "retirement_age": row["retirement_age"],
+#                 "birth_year": row["birth_year"],
+#                 "birth_month": row["birth_month"],
+#                 "gender": row["gender"],
+#                 "address": row["address"],
+#                 "latitude": row["latitude"],
+#                 "longitude": row["longitude"],
+#                 "per_capita_income": row["per_capita_income"],
+#                 "yearly_income": row["yearly_income"],
+#                 "total_debt": row["total_debt"],
+#                 "credit_score": row["credit_score"],
+#                 "num_credit_cards": row["num_credit_cards"],
+#             }
 
-            model = Cards
-            upsert_record(row_data, sharepoint_file, model)
+#             model = Users
 
-        except Exception as e:
-            logging.error(
-                f"An error occurred processing {row["id"]} card record from cards sheet: {e}"
-            )
-            continue
-
-
-def process_transactions(sharepoint_file, transactions):
-    """Process rows from transactions sheet in xlsx file"""
-
-    for index, row in transactions.iterrows():
-        try:
-
-            row_data = {
-                "id": row["id"],
-                "date": row["date"],
-                "client_id": row["client_id"],
-                "card_id": row["card_id"],
-                "amount": row["amount"],
-                "use_chip": row["use_chip"],
-                "merchant_id": row["merchant_id"],
-                "merchant_city": row["merchant_city"],
-                "merchant_state": row["merchant_state"],
-                "zip": row["zip"],
-                "mcc": row["mcc"],
-                "errors": row["errors"],
-            }
-
-            model = Transactions
-
-            upsert_record(row_data, sharepoint_file, model)
-
-        except Exception as e:
-            logging.error(f"An error occurred processing")
+#             upsert_record(row_data, sharepoint_file, model)
+#         except Exception as e:
+#             logging.error(
+#                 f"An error occurred processing {row["id"]} record from users sheet: {e}"
+#             )
+#             continue
 
 
-def upsert_record(row_data: dict, sharepoint_file: dict, model):
+# def process_cards(sharepoint_file, cards):
+#     """Process rows from cards sheet in xlsx file"""
 
-    try:
+#     for index, row in cards.iterrows():
 
-        with Session(engine) as session:
+#         try:
 
-            name = sharepoint_file["name"]
-            path = sharepoint_file["path"]
+#             row_data = {
+#                 "id": row["id"],
+#                 "client_id": row["client_id"],
+#                 "card_brand": row["card_brand"],
+#                 "card_type": row["card_type"],
+#                 "card_number": row["card_number"],
+#                 "expires": row["expires"],
+#                 "cvv": row["cvv"],
+#                 "has_chip": row["has_chip"],
+#                 "num_cards_issued": row["num_cards_issued"],
+#                 "credit_limit": row["credit_limit"],
+#                 "acct_open_date": row["acct_open_date"],
+#                 "year_pin_last_changed": row["year_pin_last_changed"],
+#                 "card_on_dark_web": row["card_on_dark_web"],
+#             }
 
-            # Check if record exists in table
-            statement = select(model).where(model.id == row_data["id"])
-            result = session.exec(statement).first()
+#             model = Cards
+#             upsert_record(row_data, sharepoint_file, model)
 
-            if result is None:
-                result = model(**row_data)
+#         except Exception as e:
+#             logging.error(
+#                 f"An error occurred processing {row["id"]} card record from cards sheet: {e}"
+#             )
+#             continue
 
-            # Sync data and update values
-            for key, value in row_data.items():
-                setattr(result, key, value)
 
-            session.add(result)
-            session.commit()
+# def process_transactions(sharepoint_file, transactions):
+#     """Process rows from transactions sheet in xlsx file"""
 
-            session.refresh(result)
-            logging.info(f"Processed {model} data")
+#     for index, row in transactions.iterrows():
+#         try:
 
-    except Exception as e:
-        logging.error(f"An error occurred inserting record: {e}")
+#             row_data = {
+#                 "id": row["id"],
+#                 "date": row["date"],
+#                 "client_id": row["client_id"],
+#                 "card_id": row["card_id"],
+#                 "amount": row["amount"],
+#                 "use_chip": row["use_chip"],
+#                 "merchant_id": row["merchant_id"],
+#                 "merchant_city": row["merchant_city"],
+#                 "merchant_state": row["merchant_state"],
+#                 "zip": row["zip"],
+#                 "mcc": row["mcc"],
+#                 "errors": row["errors"],
+#             }
+
+#             model = Transactions
+
+#             upsert_record(row_data, sharepoint_file, model)
+
+#         except Exception as e:
+#             logging.error(f"An error occurred processing")
+
+
+# def upsert_record(row_data: dict, sharepoint_file: dict, model):
+
+#     try:
+
+#         with Session(engine) as session:
+
+#             name = sharepoint_file["name"]
+#             path = sharepoint_file["path"]
+
+#             # Check if record exists in table
+#             statement = select(model).where(model.id == row_data["id"])
+#             result = session.exec(statement).first()
+
+#             if result is None:
+#                 result = model(**row_data)
+
+#             # Sync data and update values
+#             for key, value in row_data.items():
+#                 setattr(result, key, value)
+
+#             session.add(result)
+#             session.commit()
+
+#             session.refresh(result)
+#             logging.info(f"Processed {model} data")
+
+#     except Exception as e:
+#         logging.error(f"An error occurred inserting record: {e}")
