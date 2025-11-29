@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import json
+
 
 import azure.functions as func
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
@@ -20,16 +22,34 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
 
-    logging.info("Simulate ingesting sharepoint file(s)")
-    # Ingest SharePoint file(s)
     sharepoint_files = asyncio.run(download_sharepoint_files())
 
     logging.info("Python timer trigger function executed.")
 
 
 async def download_sharepoint_files():
+    """Download files from SharePoint Site"""
 
-    graph_client = generate_graph_client()
+    try:
+
+        graph_client = generate_graph_client()
+        credential = DefaultAzureCredential()
+
+        vault_url = os.getenv("vault_url")
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
+
+        drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
+        logging.info(drive_id)
+
+        # List files under General channel
+        result = await graph_client.drives.by_drive_id(drive_id).list_.items.get()
+
+        logging.info(result)
+
+    except Exception as e:
+        logging.error(
+            f"An error occurred downloading file from SharePoint: {e}")
 
 
 def generate_graph_client():
@@ -40,10 +60,12 @@ def generate_graph_client():
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -51,7 +73,8 @@ def generate_graph_client():
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
