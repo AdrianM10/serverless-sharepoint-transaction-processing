@@ -30,9 +30,10 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 async def download_sharepoint_files():
     """Download files from SharePoint Site"""
 
+    graph_client = generate_graph_client()
+
     try:
 
-        graph_client = generate_graph_client()
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
@@ -40,12 +41,11 @@ async def download_sharepoint_files():
             vault_url=vault_url, credential=credential)
 
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
-        logging.info(drive_id)
+        # logging.info(drive_id)
 
-        # List files under General channel
-        result = await graph_client.drives.by_drive_id(drive_id).list_.items.get()
+        items = await graph_client.drives.by_drive_id(drive_id).items.by_drive_item_id("root:/General:").children.get()
 
-        logging.info(result)
+        logging.info(items)
 
     except Exception as e:
         logging.error(
