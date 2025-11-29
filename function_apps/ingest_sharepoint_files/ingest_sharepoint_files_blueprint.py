@@ -153,33 +153,77 @@ def ingest_sharepoint_files(sharepoint_files: list[dict]):
 
         process_users(sharepoint_file, users)
 
+        cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+
+        process_cards(sharepoint_file, cards)
+
 
 def process_users(sharepoint_file: dict, users: dict):
-    """Process rows from users sheet in xlsx file-"""
+    """Process rows from users sheet in xlsx file"""
 
     for index, row in users.iterrows():
 
-        row_data = {
-            "id": row["id"],
-            "current_age": row["current_age"],
-            "retirement_age": row["retirement_age"],
-            "birth_year": row["birth_year"],
-            "birth_month": row["birth_month"],
-            "gender": row["gender"],
-            "address": row["address"],
-            "latitude": row["latitude"],
-            "longitude": row["longitude"],
-            "per_capita_income": row["per_capita_income"],
-            "yearly_income": row["yearly_income"],
-            "total_debt": row["total_debt"],
-            "credit_score": row["credit_score"],
-            "num_credit_cards": row["num_credit_cards"],
-        }
+        try:
 
-        upsert_users(row_data, sharepoint_file)
+            row_data = {
+                "id": row["id"],
+                "current_age": row["current_age"],
+                "retirement_age": row["retirement_age"],
+                "birth_year": row["birth_year"],
+                "birth_month": row["birth_month"],
+                "gender": row["gender"],
+                "address": row["address"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "per_capita_income": row["per_capita_income"],
+                "yearly_income": row["yearly_income"],
+                "total_debt": row["total_debt"],
+                "credit_score": row["credit_score"],
+                "num_credit_cards": row["num_credit_cards"],
+            }
+
+            model = Users
+
+            upsert_record(row_data, sharepoint_file, model)
+        except Exception as e:
+            logging.error(
+                f"An error occurred processing {row["id"]} record from users sheet: {e}"
+            )
+            continue
 
 
-def upsert_users(row_data: dict, sharepoint_file: dict):
+def process_cards(sharepoint_file, cards):
+    """Process rows from cards sheet in xlsx file"""
+
+    for index, row in cards.iterrows():
+
+        try:
+
+            row_data = {
+                "id": row["id"],
+                "client_id": row["client_id"],
+                "card_brand": row["card_brand"],
+                "card_type": row["card_type"],
+                "card_number": row["card_number"],
+                "expires": row["expires"],
+                "cvv": row["cvv"],
+                "has_chip": row["has_chip"],
+                "num_cards_issued": row["num_cards_issued"],
+                "credit_limit": row["credit_limit"],
+                "acct_open_date": row["acct_open_date"],
+                "year_pin_last_changed": row["year_pin_last_changed"],
+                "card_on_dark_web": row["card_on_dark_web"],
+            }
+
+            model = Cards
+            upsert_record(row_data, sharepoint_file, model)
+
+        except Exception as e:
+            logging.error(f"An error occurred processing cards: {e}")
+            continue
+
+
+def upsert_record(row_data: dict, sharepoint_file: dict, model):
 
     try:
 
@@ -189,11 +233,11 @@ def upsert_users(row_data: dict, sharepoint_file: dict):
             path = sharepoint_file["path"]
 
             # Check if record exists in table
-            statement = select(Users).where(Users.id == row_data["id"])
+            statement = select(model).where(model.id == row_data["id"])
             result = session.exec(statement).first()
 
             if result is None:
-                result = Users(**row_data)
+                result = model(**row_data)
 
             # Sync data and update values
             for key, value in row_data.items():
