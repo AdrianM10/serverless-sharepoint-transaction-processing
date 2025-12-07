@@ -31,30 +31,82 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     # Retrieve sharepoint directories (Yearly)
 
-    sharepoint_directories = retrieve_sharepoint_directories()
-    logging.info(sharepoint_directories)
+    path_relative_to_root = f"root:/General/Transactions/Finance:"
+    pattern = r"^YE\d{4}$"
 
-    # Retrieve sharepoint sub directories (Monthly)
-    for sharepoint_directory in sharepoint_directories:
-        if sharepoint_directory is not None:
+    year_directories = asyncio.run(
+        retrieve_sharepoint_directories(path_relative_to_root, pattern)
+    )
+    logging.info(f"year_directories: {year_directories}")
 
-            path_relative_to_root = f"root:/General/{sharepoint_directory}:"
+    month_directories = []
 
-            files_to_download = asyncio.run(retrieve_sharepoint_files_metadata(path_relative_to_root))
+    for year_directory in year_directories:
 
-            logging.info(files_to_download)
+        if year_directory is not None:
 
-            # logging.info(sharepoint_directory)
+            path_relative_to_root = (
+                f"root:/General/Transactions/Finance/{year_directory}:"
+            )
 
+            # Monthly directories
+            pattern = r"^\d{6}$"
+            retrieved_month_directories = asyncio.run(
+                retrieve_sharepoint_directories(path_relative_to_root, pattern)
+            )
 
+            month_directories.extend(retrieved_month_directories)
 
+    logging.info(f"month_directories: {month_directories}")
+
+    # Retrieve files from monthly subdirectory
+    files = []
+
+    for month_directory in month_directories:
+
+        path_relative_to_root = (
+            f"root:/General/Transactions/Finance/YE2010/{month_directory}:"
+        )
+        logging.info(path_relative_to_root)
+
+        retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
+
+        # logging.info(retrieved_files)
+
+        files.append(retrieved_files)
+
+    logging.info(files)
+
+    # Retrieve file(s) metadata under path relative to root
+    # for year_directory in year_directories:
+    #     if year_directory is not None:
+
+    #         path_relative_to_root = f"root:/General/{year_directory}:"
+
+    #         # Monthly directories
+    #         pattern = r"^\d{6}$"
+    #         month_directories = asyncio.run(
+    #             retrieve_sharepoint_directories(path_relative_to_root, pattern))
+
+    #         logging.info(month_directories)
+
+    # files_to_download = asyncio.run(
+    #     retrieve_sharepoint_files_metadata(path_relative_to_root)
+    # )
+
+    # logging.info(files_to_download)
+
+    # Download files to tmp location
+    # sharepoint_files = asyncio.run(download_sharepoint_files(files_to_download))
+
+    # logging.info(sharepoint_files)
 
     # ingest_sharepoint_files(sharepoint_files)
 
     logging.info("Python timer trigger function executed.")
 
 
-def retrieve_sharepoint_directories():
+async def retrieve_sharepoint_directories(path_relative_to_root, pattern):
     """Retrieve directories in SharePoint site matching yearly pattern i.e 'YE2010'"""
 
     try:
@@ -64,80 +116,13 @@ def retrieve_sharepoint_directories():
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
 
-        path_relative_to_root = "root:/General:"
+        directories = []
 
-        pattern = r"^YE\d{4}$"
-
-        yearly_directories = asyncio.run(
-            filter_sharepoint_directories(path_relative_to_root, pattern)
-        )
-
-        return yearly_directories
-    except Exception as e:
-        logging.error(
-            f"An error occurred retrieving sharepoint directories: {e}")
-
-
-
-async def retrieve_sharepoint_files_metadata(path_relative_to_root):
-    """Retrieve file(s) metadata containing file 'id', 'name', 'web_url', 'last_modified' """
-
-    graph_client = generate_graph_client()
-
-    credential = DefaultAzureCredential()
-
-    vault_url = os.getenv("vault_url")
-    secret_client = SecretClient(
-        vault_url=vault_url, credential=credential)
-    drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
-
-    files_to_download = []
-
-    try:
-
-        items = (
-            await graph_client.drives.by_drive_id(drive_id)
-            .items.by_drive_item_id(path_relative_to_root)
-            .children.get()
-        )
-
-        if items and items.value:
-            for item in items.value:
-                file_metadata = {
-                    "id": item.id,
-                    "name": item.name,
-                    "web_url": item.web_url,
-                }
-
-                files_to_download.append(file_metadata)
-
-        return files_to_download
-
-    except Exception as e:
-        logging.error(
-            f"An error occurred downloading file from SharePoint: {e}")
-
-
-async def filter_sharepoint_directories(path_relative_to_root, pattern):
-
-    graph_client = generate_graph_client()
-
-    credential = DefaultAzureCredential()
-
-    vault_url = os.getenv("vault_url")
-    secret_client = SecretClient(vault_url=vault_url, credential=credential)
-
-    drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
-
-    directories = []
-
-    try:
         items = (
             await graph_client.drives.by_drive_id(drive_id)
             .items.by_drive_item_id(path_relative_to_root)
@@ -151,15 +136,78 @@ async def filter_sharepoint_directories(path_relative_to_root, pattern):
                 if re.match(pattern, item.name):
                     directories.append(item.name)
 
-        logging.info(directories)
+        # logging.info(directories)
         return directories
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving sharepoint folders: {e}")
+        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
 
 
-async def download_sharepoint_files(files_metadata):
-    """Download SharePoint files"""
+async def retrieve_files(path_relative_to_root):
+    """Retrieve file(s) metadata containing file 'id', 'name', 'web_url', 'last_modified'"""
+
+    graph_client = generate_graph_client()
+
+    credential = DefaultAzureCredential()
+
+    vault_url = os.getenv("vault_url")
+    secret_client = SecretClient(vault_url=vault_url, credential=credential)
+    drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
+
+    files_to_download = []
+
+    try:
+
+        items = (
+            await graph_client.drives.by_drive_id(drive_id)
+            .items.by_drive_item_id(path_relative_to_root)
+            .children.get()
+        )
+        # logging.info(items)
+        if items and items.value:
+
+            for item in items.value:
+                file_metadata = {
+                    "id": item.id,
+                    "name": item.name,
+                    "web_url": item.web_url,
+                }
+
+                files_to_download.append(file_metadata)
+
+        return files_to_download
+
+    except Exception as e:
+        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+
+
+def generate_graph_client():
+    """Create instance of Microsoft Graph client"""
+
+    try:
+
+        vault_url = os.getenv("vault_url")
+
+        credential = DefaultAzureCredential()
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+
+        client_id = secret_client.get_secret("sharepoint-client-id").value
+        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
+
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
+        )
+
+        scopes = ["https://graph.microsoft.com/.default"]
+        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+
+        return graph_client
+    except Exception as e:
+        logging.error(f"An error occurred generating graph client: {e}")
+
+
+async def download_sharepoint_files(files_to_download):
 
     graph_client = generate_graph_client()
 
@@ -172,56 +220,34 @@ async def download_sharepoint_files(files_metadata):
 
     file_paths = []
 
-    for file_metadata in files_metadata:
+    for file_to_download in files_to_download:
         try:
-            logging.info(file_metadata)
-            drive_item_id = file_metadata["id"]
-            name = file_metadata["name"]
+            logging.info(f"drive_id: {drive_id}")
+            drive_item_id = file_to_download["id"]
+            logging.info(f"drive_item_id: {drive_item_id}")
+            name = file_to_download["name"]
 
+            # Get temp/tmp directory location
             temp_file_path = tempfile.gettempdir()
+
             file_path = os.path.join(temp_file_path, name)
 
-            download = await graph_client.drives.by_drive_id(drive_id).items.by_drive_item_id(drive_item_id).content.get()
+            download = (
+                await graph_client.drives.by_drive_id(drive_id)
+                .items.by_drive_item_id(drive_item_id)
+                .content.get()
+            )
 
             with open(file_path, "wb") as file:
                 file.write(download)
 
-            file_data = {"name": name, "path": file_path}
+            file_metadata = {"name": name, "path": file_path}
 
-            file_paths.append(file_data)
+            file_paths.append(file_metadata)
         except Exception as e:
-            logging.error(f"An error occurred downloading {name}: {e}")
+            logging.error(f"An error occurred downloading file: {name}. {e}")
 
     return file_paths
-
-
-def generate_graph_client():
-    """Create instance of Microsoft Graph client"""
-
-    try:
-
-        vault_url = os.getenv("vault_url")
-
-        credential = DefaultAzureCredential()
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
-
-        client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret(
-            "sharepoint-client-secret").value
-        tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
-
-        credential = ClientSecretCredential(
-            tenant_id=tenant_id, client_id=client_id, client_secret=client_secret
-        )
-
-        scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(
-            credentials=credential, scopes=scopes)
-
-        return graph_client
-    except Exception as e:
-        logging.error(f"An error occurred generating graph client: {e}")
 
 
 # def ingest_sharepoint_files(sharepoint_files: list[dict]):
