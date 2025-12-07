@@ -20,7 +20,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */2 * * * *",
+    schedule="0 */30 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -35,34 +35,35 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         for yearly_directory in yearly_directories:
 
-            if yearly_directory is not None:
+            monthly_directories = retrieve_monthly_directories(
+                yearly_directory)
 
-                monthly_directories = retrieve_monthly_directories(
-                    yearly_directory)
+            logging.info(f"monthly_directories: {monthly_directories}")
 
-                logging.info(f"monthly_directories: {monthly_directories}")
+            if monthly_directories:
 
                 # Retrieve files from monthly subdirectory
                 files_to_download = []
 
-            for month_directory in monthly_directories:
+                for month_directory in monthly_directories:
 
-                path_relative_to_root = (
-                    f"root:/General/Transactions/Finance/YE2010/{month_directory}:"
+                    path_relative_to_root = (
+                        f"root:/General/Transactions/Finance/YE2010/{month_directory}:"
+                    )
+                    logging.info(path_relative_to_root)
+
+                    retrieved_files = asyncio.run(
+                        retrieve_files(path_relative_to_root))
+
+                    files_to_download.extend(retrieved_files)
+
+                logging.info(files_to_download)
+
+                sharepoint_files = asyncio.run(
+                    download_sharepoint_files(files_to_download)
                 )
-                logging.info(path_relative_to_root)
 
-                retrieved_files = asyncio.run(
-                    retrieve_files(path_relative_to_root))
-
-                files_to_download.extend(retrieved_files)
-
-            logging.info(files_to_download)
-
-            sharepoint_files = asyncio.run(
-                download_sharepoint_files(files_to_download))
-
-            # ingest_sharepoint_files(sharepoint_files)
+                ingest_sharepoint_files(sharepoint_files)
 
     logging.info("Python timer trigger function executed.")
 
@@ -87,6 +88,7 @@ def retrieve_yearly_directories():
 
 
 def retrieve_monthly_directories(yearly_directory):
+    """Retrieve sharepoint directories (Monthly)"""
 
     try:
 
@@ -314,7 +316,7 @@ def process_users(sharepoint_file: dict, users: dict):
 
 
 def process_cards(sharepoint_file, cards):
-    """Process rows from cards sheet in xlsx file"""
+    """Process rows from cards sheet in xlsx file(s)"""
 
     for index, row in cards.iterrows():
 
@@ -347,7 +349,7 @@ def process_cards(sharepoint_file, cards):
 
 
 def process_transactions(sharepoint_file, transactions):
-    """Process rows from transactions sheet in xlsx file"""
+    """Process rows from transactions sheet in xlsx file(s)"""
 
     for index, row in transactions.iterrows():
         try:
@@ -361,8 +363,8 @@ def process_transactions(sharepoint_file, transactions):
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": row["merchant_city"],
-                "merchant_state": row["merchant_state"],
-                "zip": row["zip"],
+                "merchant_state": None if pd.isna(row["merchant_state"]) else row["merchant_state"],
+                "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": row["mcc"],
                 "errors": row["errors"],
             }
@@ -372,7 +374,7 @@ def process_transactions(sharepoint_file, transactions):
             upsert_record(row_data, sharepoint_file, model)
 
         except Exception as e:
-            logging.error(f"An error occurred processing")
+            logging.error(f"An error occurred processing record {row_data['id']}: {e}")
 
 
 def upsert_record(row_data: dict, sharepoint_file: dict, model):
