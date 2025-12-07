@@ -20,7 +20,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */30 * * * *",
+    schedule="0 */5 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -35,8 +35,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         for yearly_directory in yearly_directories:
 
-            monthly_directories = retrieve_monthly_directories(
-                yearly_directory)
+            monthly_directories = retrieve_monthly_directories(yearly_directory)
 
             logging.info(f"monthly_directories: {monthly_directories}")
 
@@ -52,8 +51,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     )
                     logging.info(path_relative_to_root)
 
-                    retrieved_files = asyncio.run(
-                        retrieve_files(path_relative_to_root))
+                    retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
 
                     files_to_download.extend(retrieved_files)
 
@@ -118,8 +116,7 @@ async def retrieve_sharepoint_directories(path_relative_to_root, pattern):
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -143,8 +140,7 @@ async def retrieve_sharepoint_directories(path_relative_to_root, pattern):
         return directories
 
     except Exception as e:
-        logging.error(
-            f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
 
 
 async def retrieve_files(path_relative_to_root: str):
@@ -182,8 +178,7 @@ async def retrieve_files(path_relative_to_root: str):
         return files_to_download
 
     except Exception as e:
-        logging.error(
-            f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
 
 
 def generate_graph_client():
@@ -194,12 +189,10 @@ def generate_graph_client():
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret(
-            "sharepoint-client-secret").value
+        client_secret = secret_client.get_secret("sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -207,8 +200,7 @@ def generate_graph_client():
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(
-            credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
@@ -266,22 +258,22 @@ def ingest_sharepoint_files(sharepoint_files: list[dict]):
         logging.info(sharepoint_file)
 
         file_path = sharepoint_file["path"]
+        file_name = sharepoint_file["name"]
 
         users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
 
-        # process_users(sharepoint_file, users)
+        process_users(sharepoint_file, users, file_name)
 
         cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
 
-        # process_cards(sharepoint_file, cards)
+        # process_cards(sharepoint_file, cards, file_name)
 
-        transactions = pd.read_excel(
-            open(file_path, "rb"), sheet_name="transactions")
+        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
-        process_transactions(sharepoint_file, transactions)
+        # process_transactions(sharepoint_file, transactions, file_name)
 
 
-def process_users(sharepoint_file: dict, users: dict):
+def process_users(sharepoint_file: dict, users: dict, file_name: str):
     """Process rows from users sheet in xlsx file"""
 
     for index, row in users.iterrows():
@@ -303,6 +295,7 @@ def process_users(sharepoint_file: dict, users: dict):
                 "total_debt": row["total_debt"],
                 "credit_score": row["credit_score"],
                 "num_credit_cards": row["num_credit_cards"],
+                "source": file_name,
             }
 
             model = Users
@@ -315,7 +308,7 @@ def process_users(sharepoint_file: dict, users: dict):
             continue
 
 
-def process_cards(sharepoint_file, cards):
+def process_cards(sharepoint_file, cards, file_name: str):
     """Process rows from cards sheet in xlsx file(s)"""
 
     for index, row in cards.iterrows():
@@ -336,6 +329,7 @@ def process_cards(sharepoint_file, cards):
                 "acct_open_date": row["acct_open_date"],
                 "year_pin_last_changed": row["year_pin_last_changed"],
                 "card_on_dark_web": row["card_on_dark_web"],
+                "source": file_name,
             }
 
             model = Cards
@@ -348,7 +342,7 @@ def process_cards(sharepoint_file, cards):
             continue
 
 
-def process_transactions(sharepoint_file, transactions):
+def process_transactions(sharepoint_file, transactions, file_name: str):
     """Process rows from transactions sheet in xlsx file(s)"""
 
     for index, row in transactions.iterrows():
@@ -363,10 +357,13 @@ def process_transactions(sharepoint_file, transactions):
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": row["merchant_city"],
-                "merchant_state": None if pd.isna(row["merchant_state"]) else row["merchant_state"],
+                "merchant_state": (
+                    None if pd.isna(row["merchant_state"]) else row["merchant_state"]
+                ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": row["mcc"],
                 "errors": row["errors"],
+                "source": file_name,
             }
 
             model = Transactions
