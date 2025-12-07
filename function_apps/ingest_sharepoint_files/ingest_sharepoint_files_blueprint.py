@@ -20,7 +20,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */2 * * * *",
+    schedule="0 */5 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -60,7 +60,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     logging.info(f"month_directories: {month_directories}")
 
     # Retrieve files from monthly subdirectory
-    files = []
+    files_to_download = []
 
     for month_directory in month_directories:
 
@@ -73,35 +73,11 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         # logging.info(retrieved_files)
 
-        files.append(retrieved_files)
+        files_to_download.extend(retrieved_files)
 
-    logging.info(files)
+    logging.info(files_to_download)
 
-    # Retrieve file(s) metadata under path relative to root
-    # for year_directory in year_directories:
-    #     if year_directory is not None:
-
-    #         path_relative_to_root = f"root:/General/{year_directory}:"
-
-    #         # Monthly directories
-    #         pattern = r"^\d{6}$"
-    #         month_directories = asyncio.run(
-    #             retrieve_sharepoint_directories(path_relative_to_root, pattern))
-
-    #         logging.info(month_directories)
-
-    # files_to_download = asyncio.run(
-    #     retrieve_sharepoint_files_metadata(path_relative_to_root)
-    # )
-
-    # logging.info(files_to_download)
-
-    # Download files to tmp location
-    # sharepoint_files = asyncio.run(download_sharepoint_files(files_to_download))
-
-    # logging.info(sharepoint_files)
-
-    # ingest_sharepoint_files(sharepoint_files)
+    sharepoint_files = asyncio.run(download_sharepoint_files(files_to_download))
 
     logging.info("Python timer trigger function executed.")
 
@@ -116,7 +92,8 @@ async def retrieve_sharepoint_directories(path_relative_to_root, pattern):
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -140,7 +117,8 @@ async def retrieve_sharepoint_directories(path_relative_to_root, pattern):
         return directories
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(
+            f"An error occurred retrieving sharepoint directories: {e}")
 
 
 async def retrieve_files(path_relative_to_root):
@@ -163,7 +141,7 @@ async def retrieve_files(path_relative_to_root):
             .items.by_drive_item_id(path_relative_to_root)
             .children.get()
         )
-        # logging.info(items)
+
         if items and items.value:
 
             for item in items.value:
@@ -178,7 +156,8 @@ async def retrieve_files(path_relative_to_root):
         return files_to_download
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(
+            f"An error occurred retrieving file from SharePoint: {e}")
 
 
 def generate_graph_client():
@@ -189,10 +168,12 @@ def generate_graph_client():
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -200,7 +181,8 @@ def generate_graph_client():
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
