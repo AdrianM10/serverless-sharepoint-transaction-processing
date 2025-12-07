@@ -251,7 +251,7 @@ async def download_sharepoint_files(files_to_download):
 
 
 def ingest_sharepoint_files(sharepoint_files: list[dict]):
-    """Ingest records from each sheet in xlsx file"""
+    """Ingest records from each sheet in xlsx file(s)"""
 
     for sharepoint_file in sharepoint_files:
 
@@ -262,7 +262,7 @@ def ingest_sharepoint_files(sharepoint_files: list[dict]):
 
         users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
 
-        process_users(sharepoint_file, users, file_name)
+        # process_users(sharepoint_file, users, file_name)
 
         cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
 
@@ -270,7 +270,7 @@ def ingest_sharepoint_files(sharepoint_files: list[dict]):
 
         transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
-        # process_transactions(sharepoint_file, transactions, file_name)
+        process_transactions(sharepoint_file, transactions, file_name)
 
 
 def process_users(sharepoint_file: dict, users: dict, file_name: str):
@@ -345,6 +345,8 @@ def process_cards(sharepoint_file, cards, file_name: str):
 def process_transactions(sharepoint_file, transactions, file_name: str):
     """Process rows from transactions sheet in xlsx file(s)"""
 
+    tasks = []
+
     for index, row in transactions.iterrows():
         try:
 
@@ -398,7 +400,7 @@ def upsert_record(row_data: dict, sharepoint_file: dict, model):
             session.commit()
 
             session.refresh(result)
-            logging.info(f"Processed {model} data")
+            logging.info(f"Processed {result} data")
 
     except Exception as e:
         logging.error(f"An error occurred inserting record: {e}")
