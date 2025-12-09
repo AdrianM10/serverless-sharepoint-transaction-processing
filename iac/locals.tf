@@ -32,7 +32,6 @@ locals {
   # Generate function app names
   function_app_names = [
     for app in var.base_config.function_apps :
-    # "${var.project_name}-${app}-${local.env_suffix[var.environment]}"
     "${app}-${local.env_suffix[var.environment]}"
   ]
 }
