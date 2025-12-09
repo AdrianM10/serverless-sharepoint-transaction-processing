@@ -35,6 +35,7 @@ resource "azurerm_service_plan" "appserviceplan" {
 }
 
 resource "azurerm_function_app_flex_consumption" "functionpp" {
+  count               = length(var.function_app_names)
   name                = "sptxn-fn-app-${var.environment}"
   resource_group_name = data.azurerm_resource_group.rg.name
   location            = data.azurerm_resource_group.rg.location
@@ -49,13 +50,13 @@ resource "azurerm_function_app_flex_consumption" "functionpp" {
   maximum_instance_count      = 40
   instance_memory_in_mb       = 2048
 
-  app_settings = local.all_function_app_settings
+  app_settings = local.function_app_settings[var.function_app_names[count.index]]
 
   https_only = true
 
   site_config {
     minimum_tls_version      = "1.3"
-    application_insights_key = azurerm_application_insights.app_insights.instrumentation_key
+    application_insights_key = azurerm_application_insights.app_insights[count.index].instrumentation_key
   }
 
   identity {
@@ -135,7 +136,7 @@ data "azurerm_key_vault" "kv" {
 }
 
 resource "azurerm_role_assignment" "kv_secrets_user" {
-  count = length(var.function_app_names)
+  count                = length(var.function_app_names)
   scope                = data.azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_function_app_flex_consumption.functionpp[count.index].identity[0].principal_id
