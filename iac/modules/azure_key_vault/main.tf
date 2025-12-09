@@ -25,7 +25,7 @@ resource "azurerm_key_vault" "kv" {
 resource "azurerm_role_assignment" "kv_secrets_user" {
   count                = length(var.key_vault_secret_officers)
   scope                = azurerm_key_vault.kv.id
-  role_definition_name = "Key Vault Secrets User"
+  role_definition_name = "Key Vault Secrets Officer"
   principal_id         = var.key_vault_secret_officers[count.index]
 
 }
