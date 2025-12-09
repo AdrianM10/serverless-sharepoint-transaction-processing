@@ -7,14 +7,14 @@ locals {
   }
 
   function_app_name = "ssptxn-fn-app-${local.env_suffixes[var.environment]}"
-  function_names    = ["IngestBankTransactions"]
+  function_names    = ["IngestSharePointFilesTimer"]
 
   base_function_settings = {
     dev = {
-      disabled_functions = []
+      disabled_functions = ["IngestSharePointFilesTimer"]
     }
     prod = {
-      disabled_functions = []
+      disabled_functions = ["IngestSharePointFilesTimer"]
     }
   }
 
