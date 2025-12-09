@@ -14,10 +14,10 @@ base_config = {
 alert_config = {
   dev = {
     contact_name  = "Dev Support Team"
-    contact_email = ""
+    contact_email = "a63470453@gmail.com"
   }
   prod = {
     contact_name  = "Prod Support Team"
-    contact_email = ""
+    contact_email = "a63470453@gmail.com"
   }
 }
