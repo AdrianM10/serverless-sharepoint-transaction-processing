@@ -1,4 +1,4 @@
-project_name = "ssptxn"
+project_name = "sptxn"
 app_owner    = "AdrianM10"
 location     = "South Africa North"
 
