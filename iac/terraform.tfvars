@@ -7,7 +7,7 @@ base_config = {
   storage_account  = "aspstr"
   app_service_plan = "asp"
   log_analytics    = "law"
-  function_apps    = ["ssptxn-fn-app"]
+  function_apps    = ["sptxn-fn-app"]
   kv_name          = "kv-ssp-txn"
 }
 
