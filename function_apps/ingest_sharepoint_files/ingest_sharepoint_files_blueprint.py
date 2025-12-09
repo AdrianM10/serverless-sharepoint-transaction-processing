@@ -262,7 +262,7 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]):
 
                 tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
     except Exception as e:
-        logging.error(f"An error occurred ingesting sharepoint file: {e}")
+        logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
 
 
 def process_single_month(sharepoint_file: dict):
@@ -276,6 +276,8 @@ def process_single_month(sharepoint_file: dict):
     cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
     transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
+    process_users(sharepoint_file, users, file_name)
+    process_cards(sharepoint_file, cards, file_name)
     process_transactions(sharepoint_file, transactions, file_name)
 
 
