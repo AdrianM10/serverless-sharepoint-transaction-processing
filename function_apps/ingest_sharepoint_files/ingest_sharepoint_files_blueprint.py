@@ -2,8 +2,8 @@ import asyncio
 import json
 import logging
 import os
-import tempfile
 import re
+import tempfile
 
 import azure.functions as func
 import pandas as pd
@@ -20,9 +20,10 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */5 * * * *",
+    # schedule="0 */20 * * * *",
+    schedule="0 11 19 * * *",
     arg_name="myTimer",
-    run_on_startup=False,
+    run_on_startup=True,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
@@ -61,7 +62,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     download_sharepoint_files(files_to_download)
                 )
 
-                ingest_sharepoint_files(sharepoint_files)
+                asyncio.run(ingest_sharepoint_files(sharepoint_files))
 
     logging.info("Python timer trigger function executed.")
 
@@ -250,27 +251,32 @@ async def download_sharepoint_files(files_to_download):
     return file_paths
 
 
-def ingest_sharepoint_files(sharepoint_files: list[dict]):
+async def ingest_sharepoint_files(sharepoint_files: list[dict]):
     """Ingest records from each sheet in xlsx file(s)"""
 
-    for sharepoint_file in sharepoint_files:
+    try:
 
-        logging.info(sharepoint_file)
+        async with asyncio.TaskGroup() as tg:
 
-        file_path = sharepoint_file["path"]
-        file_name = sharepoint_file["name"]
+            for sharepoint_file in sharepoint_files:
 
-        users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
+    except Exception as e:
+        logging.error(f"An error occurred ingesting sharepoint file: {e}")
 
-        # process_users(sharepoint_file, users, file_name)
 
-        cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+def process_single_month(sharepoint_file: dict):
 
-        # process_cards(sharepoint_file, cards, file_name)
+    logging.info(f"Processing {sharepoint_file['name']}...")
 
-        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+    file_path = sharepoint_file["path"]
+    file_name = sharepoint_file["name"]
 
-        process_transactions(sharepoint_file, transactions, file_name)
+    users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+    cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+    transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+
+    process_transactions(sharepoint_file, transactions, file_name)
 
 
 def process_users(sharepoint_file: dict, users: dict, file_name: str):
@@ -345,9 +351,8 @@ def process_cards(sharepoint_file, cards, file_name: str):
 def process_transactions(sharepoint_file, transactions, file_name: str):
     """Process rows from transactions sheet in xlsx file(s)"""
 
-    tasks = []
-
     for index, row in transactions.iterrows():
+
         try:
 
             row_data = {
@@ -358,20 +363,21 @@ def process_transactions(sharepoint_file, transactions, file_name: str):
                 "amount": row["amount"],
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
-                "merchant_city": row["merchant_city"],
+                "merchant_city": (
+                    None if pd.isna(row["merchant_city"]) else row["merchant_city"]
+                ),
                 "merchant_state": (
                     None if pd.isna(row["merchant_state"]) else row["merchant_state"]
                 ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
-                "mcc": row["mcc"],
-                "errors": row["errors"],
+                "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
+                "errors": None if pd.isna(row["errors"]) else row["errors"],
                 "source": file_name,
             }
 
             model = Transactions
 
             upsert_record(row_data, sharepoint_file, model)
-
         except Exception as e:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
 
@@ -403,4 +409,6 @@ def upsert_record(row_data: dict, sharepoint_file: dict, model):
             logging.info(f"Processed {result} data")
 
     except Exception as e:
-        logging.error(f"An error occurred inserting record: {e}")
+        logging.error(
+            f"An error occurred performing upsert operation on record {result["id"]}: {e}"
+        )
