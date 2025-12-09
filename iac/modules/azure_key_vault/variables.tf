@@ -31,5 +31,5 @@ variable "kv_name" {
 
 variable "key_vault_secret_officers" {
   type    = list(string)
-  default = []
+  default = ["9110e216-b95d-4941-959f-be50d5277365"]
 }

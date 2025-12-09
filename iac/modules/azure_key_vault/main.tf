@@ -25,6 +25,6 @@ resource "azurerm_key_vault" "kv" {
 resource "azurerm_role_assignment" "kv_secrets_user" {
   scope                = azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
-  principal_id         = azurerm_function_app_flex_consumption.functionpp.identity[0].principal_id
+  principal_id         = var.key_vault_secret_officers[count.index]
 
 }
