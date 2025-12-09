@@ -6,7 +6,7 @@ locals {
     prod = "prod"
   }
 
-  function_app_name = "ssptxn-fn-app-${local.env_suffixes[var.environment]}"
+  function_app_name = "sptxn-fn-app-${local.env_suffixes[var.environment]}"
   function_names    = ["IngestSharePointFilesTimer"]
 
   base_function_settings = {
