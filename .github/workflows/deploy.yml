@@ -98,7 +98,7 @@ jobs:
       - name: Archive Function App
         run: |
           cd ./function_apps/ingest_sharepoint_files
-          zip -r ../../ssptxn-fn-app-build-${{ github.run_number }}.zip . -x "*.git*"
+          zip -r ../../sptxn-fn-app-build-${{ github.run_number }}.zip . -x "*.git*"
       
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -110,5 +110,5 @@ jobs:
       - name: Deploy Function App
         uses: Azure/functions-action@v1
         with:
-          app-name: ssptxn-fn-app-${{ env.ENVIRONMENT }}
-          package: ./ssptxn-fn-app-build-${{ github.run_number }}.zip
+          app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
+          package: ./sptxn-fn-app-build-${{ github.run_number }}.zip
