@@ -3,4 +3,14 @@
 # azure-monitor-opentelemetry
 
 azure-functions
+pandas
+openpyxl
+asyncpg
+greenlet
+sqlmodel
+alembic
+requests
+azure-identity
+azure-keyvault-secrets
+msgraph-sdk
 
