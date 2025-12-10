@@ -4,12 +4,12 @@ This repository contains a serverless file processing backend app using Azure Fu
 
 ## Repository Structure
 
-- github/workflows
-- database
-- function_apps/ingest_sharepoint_files
-- iac
-- remote_backend_setup
-- sample_datasets
+- **`github/workflows/`** - GitHub Actions and CI/CD related configurations
+- **`database/`** - Migration scripts for database
+- **`function_apps/ingest_sharepoint_files/`** - Timer based trigger function app that processes xlsx files from sharepoint and persists data into PostgreSQL
+- **`iac/`** - Terraform modules to deploy Azure Functions, PostgreSQL and Key Vault
+- **`remote_backend_setup/`** - Python script to deploy remote backend required by Terraform
+- **`sample_datasets/`** - Multiple financial transaction datasets
 
 
 ## Getting Started
