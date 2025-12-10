@@ -12,7 +12,7 @@ def main():
     subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID")
     rg_name = "rg-sp-txn-tf-backend"
     location = "southafricanorth"
-    storage_account_name = "sptxntfstr"
+    storage_account_name = os.environ.get("STORAGE_ACCOUNT_NAME")
     blob_container_name = "tfstate"
 
     rg_name = provision_resource_group(credential, subscription_id, rg_name, location)
