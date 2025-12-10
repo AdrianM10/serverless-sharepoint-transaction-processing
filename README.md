@@ -14,6 +14,8 @@ This repository contains a serverless file processing backend app using Azure Fu
 
 ## Getting Started
 
+- [WIP]
+
 ### Prerequisites
 
 - Microsoft Teams Site
