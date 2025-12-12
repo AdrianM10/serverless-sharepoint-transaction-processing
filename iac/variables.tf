@@ -27,7 +27,6 @@ variable "base_config" {
     app_service_plan = string
     log_analytics    = string
     function_apps    = list(string)
-    kv_name          = string
   })
 }
 
@@ -44,4 +43,10 @@ variable "alert_config" {
     })
   })
 
+}
+
+variable "kv_name_base" {
+  type = string
+  description = "Base name for Azure Key Vault"
+  sensitive = true
 }

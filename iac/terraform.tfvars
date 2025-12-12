@@ -1,5 +1,5 @@
 project_name = "sptxn"
-app_owner    = "AdrianM10"
+app_owner    = "M10"
 location     = "South Africa North"
 
 base_config = {
@@ -8,7 +8,6 @@ base_config = {
   app_service_plan = "asp"
   log_analytics    = "law"
   function_apps    = ["sptxn-fn-app"]
-  kv_name          = "kv-ssp-txn"
 }
 
 alert_config = {
