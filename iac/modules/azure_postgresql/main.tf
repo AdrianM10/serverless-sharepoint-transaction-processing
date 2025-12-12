@@ -7,8 +7,8 @@ data "azurerm_client_config" "current" {}
 
 resource "azurerm_postgresql_flexible_server" "psql_server" {
   name                = var.psql_server_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = data.azurerm_resource_group.rg.name
+  location            = data.azurerm_resource_group.rg.location
   version             = "18"
   storage_mb          = 32768
   sku_name            = "B_Standard_B1ms"
@@ -31,7 +31,7 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "psql_fw_rule" {
 
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "psql_admin" {
   server_name         = azurerm_postgresql_flexible_server.psql_server.name
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = data.azurerm_resource_group.rg.name
   tenant_id           = data.azurerm_client_config.current.tenant_id
   object_id           = var.psql_admin_sg_object_id
   principal_name      = "POSTGRE_SQL_ADMINS"
