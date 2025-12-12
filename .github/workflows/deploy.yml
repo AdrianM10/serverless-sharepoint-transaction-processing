@@ -26,6 +26,9 @@ jobs:
     env:
       TF_VAR_kv_name_base: ${{ secrets.KV_NAME }}
       TF_VAR_alert_config: ${{ secrets.ALERT_CONFIG }}
+      TF_VAR_psql_admin_sg_object_id: ${{ secrets.POSTGRE_SQL_ADMINS_OBJECT_ID }}
+      TF_VAR_ip_address: ${{ secrets.IP_ADDRESS }}
+      TF_VAR_psql_server_name: ${{ secrets.PSQL_SERVER_NAME }}
 
     steps:
       - uses: actions/checkout@v5
@@ -61,7 +64,7 @@ jobs:
             -auto-approve \
             -input=false
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-  
+
   functions:
     name: Deploy Functions
     runs-on: ubuntu-latest

@@ -51,3 +51,21 @@ variable "kv_name_base" {
   description = "Base name for Azure Key Vault"
   sensitive   = true
 }
+
+variable "ip_address" {
+  description = "IP Address for Firewall rule"
+  type        = string
+  sensitive   = true
+}
+
+variable "psql_server_name" {
+  description = "Postgre SQL Server name"
+  type        = string
+  sensitive   = true
+}
+
+variable "psql_admin_sg_object_id" {
+  description = "Postgre SQL admin Entra security group"
+  type = string
+  sensitive = true
+}

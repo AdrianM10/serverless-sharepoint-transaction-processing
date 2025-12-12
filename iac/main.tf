@@ -65,12 +65,15 @@ module "azure_kv" {
 }
 
 module "azure_postgre_sql" {
-  source              = "./modules/azure_postgresql"
-  project_name        = var.project_name
-  app_owner           = var.app_owner
-  resource_group_name = local.resource_names.resource_group
-  location            = var.location
-  environment         = var.environment
+  source                  = "./modules/azure_postgresql"
+  project_name            = var.project_name
+  app_owner               = var.app_owner
+  resource_group_name     = local.resource_names.resource_group
+  location                = var.location
+  environment             = var.environment
+  ip_address              = var.ip_address
+  psql_server_name        = var.psql_server_name
+  psql_admin_sg_object_id = var.psql_admin_sg_object_id
 
   depends_on = [azurerm_resource_group.rg]
 }
