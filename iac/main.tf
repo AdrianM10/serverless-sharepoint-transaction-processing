@@ -60,8 +60,17 @@ module "azure_kv" {
   environment         = var.environment
   kv_name             = local.resource_names.kv_name
 
-
   depends_on = [azurerm_resource_group.rg]
 
+}
 
+module "azure_postgre_sql" {
+  source              = "./modules/azure_postgre_sql"
+  project_name        = var.project_name
+  app_owner           = var.app_owner
+  resource_group_name = local.resource_names.resource_group
+  location            = var.location
+  environment         = var.environment
+
+  depends_on = [azurerm_resource_group.rg]
 }
