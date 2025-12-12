@@ -42,11 +42,12 @@ variable "alert_config" {
       contact_email = string
     })
   })
+  sensitive = true
 
 }
 
 variable "kv_name_base" {
-  type = string
+  type        = string
   description = "Base name for Azure Key Vault"
-  sensitive = true
+  sensitive   = true
 }

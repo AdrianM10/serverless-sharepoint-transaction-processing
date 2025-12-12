@@ -9,14 +9,3 @@ base_config = {
   log_analytics    = "law"
   function_apps    = ["sptxn-fn-app"]
 }
-
-alert_config = {
-  dev = {
-    contact_name  = "Dev Support Team"
-    contact_email = "a63470453@gmail.com"
-  }
-  prod = {
-    contact_name  = "Prod Support Team"
-    contact_email = "a63470453@gmail.com"
-  }
-}

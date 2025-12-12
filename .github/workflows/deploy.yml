@@ -25,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TF_VAR_kv_name_base: ${{ secrets.KV_NAME }}
+      TF_VAR_alert_config: ${{ secrets.ALERT_CONFIG }}
 
     steps:
       - uses: actions/checkout@v5
