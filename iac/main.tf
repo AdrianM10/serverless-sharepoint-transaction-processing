@@ -65,7 +65,7 @@ module "azure_kv" {
 }
 
 module "azure_postgre_sql" {
-  source              = "./modules/azure_postgre_sql"
+  source              = "./modules/azure_postgresql"
   project_name        = var.project_name
   app_owner           = var.app_owner
   resource_group_name = local.resource_names.resource_group
