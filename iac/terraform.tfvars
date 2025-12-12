@@ -1,5 +1,5 @@
 project_name = "sptxn"
-app_owner    = "M10"
+app_owner    = "AdrianM10"
 location     = "South Africa North"
 
 base_config = {
