@@ -5,7 +5,7 @@ from sqlalchemy import pool
 from sqlmodel import SQLModel
 
 from alembic import context
-
+import urllib.parse
 from models import Cards, Transactions, Users
 
 import os
@@ -21,9 +21,23 @@ if config.config_file_name is not None:
 
 # Get the URL from alembic.ini and replace the password placeholder
 url = config.get_main_option("sqlalchemy.url")
+
 if url:
+    # Replace PASSWORD (Local Dev & Azure)
     password = os.getenv("DB_PASSWORD", "")
     url = url.replace("PASSWORD", password)
+    
+    # Replace USERNAME (Azure Only)
+    if "USERNAME" in url:
+        username = "POSTGRE_SQL_ADMINS"
+        encoded_username = urllib.parse.quote(username, safe="")
+        url = url.replace("USERNAME", encoded_username)
+    
+    # Replace HOST (Azure Only)
+    if "HOST" in url:
+        host = os.environ.get("DB_HOST", "")
+        url = url.replace("@HOST", host)
+    
     config.set_main_option("sqlalchemy.url", url)
 
 # add your model's MetaData object here
