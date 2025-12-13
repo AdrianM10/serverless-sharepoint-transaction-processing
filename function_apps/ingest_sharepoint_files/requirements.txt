@@ -5,7 +5,7 @@
 azure-functions
 pandas
 openpyxl
-asyncpg
+psycopg2
 greenlet
 sqlmodel
 alembic
