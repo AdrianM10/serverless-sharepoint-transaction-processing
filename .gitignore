@@ -1,2 +1,2 @@
-code_snippets/sharepoint_permissions.txt
-code_snippets/ingest_sharepoint_files.py
+local-iac/*
+code_snippets/*
