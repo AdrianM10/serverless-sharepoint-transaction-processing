@@ -133,6 +133,7 @@ jobs:
         with:
           app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
           slot-name: 'Production'
+          publish-profile: ${{ secrets.PUBLISH_PROFILE }}
           package: '.'
           scm-do-build-during-deployment: true
           enable-oryx-build: true 
