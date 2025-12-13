@@ -134,3 +134,5 @@ jobs:
           app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
           slot-name: 'Production'
           package: '.'
+          scm-do-build-during-deployment: true
+          enable-oryx-build: true 
