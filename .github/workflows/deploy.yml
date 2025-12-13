@@ -1,4 +1,5 @@
 name: Deploy Serverless Financial Transactions Processing App
+
 on:
   workflow_dispatch:
 
@@ -18,6 +19,7 @@ env:
   BACKEND_CONTAINER: tfstate
   PYTHON_VERSION: "3.12"
   ENVIRONMENT: dev
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: './function_apps/ingest_sharepoint_files'
 
 jobs:
   infrastructure:
@@ -29,26 +31,26 @@ jobs:
       TF_VAR_psql_admin_sg_object_id: ${{ secrets.POSTGRE_SQL_ADMINS_OBJECT_ID }}
       TF_VAR_ip_address: ${{ secrets.IP_ADDRESS }}
       TF_VAR_psql_server_name: ${{ secrets.PSQL_SERVER_NAME }}
-
+    
     steps:
       - uses: actions/checkout@v5
-
+      
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: latest
-
+      
       - name: Terraform Init
         run: terraform init
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-
+      
       - name: Terraform Plan
         run: |
           terraform plan \
@@ -56,6 +58,7 @@ jobs:
             -var-file="terraform.tfvars" \
             -input=false
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      
       - name: Terraform Apply
         run: |
           terraform apply \
@@ -65,41 +68,69 @@ jobs:
             -input=false
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
 
-  functions:
-    name: Deploy Functions
+  build:
+    name: Build Function App
     runs-on: ubuntu-latest
     needs: infrastructure
+    
     steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      
+      - name: Setup Python version
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          architecture: x64
-
-      - name: Install Dependencies
+      
+      - name: Create and start virtual environment
         run: |
-          if [ -f extensions.csproj ]; then
-            dotnet build extensions.csproj --output ./bin
-          fi
-          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
-        working-directory: ./function_apps/ingest_sharepoint_files
+          python -m venv venv
+          source venv/bin/activate
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+      
+      - name: Zip artifact for deployment
+        run: zip release.zip ./* -r
+        working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+      
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: |
+            ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
+            !${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/venv/
 
-      - name: Archive Function App
+  deploy:
+    name: Deploy Function App
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+      
+      - name: Unzip artifact for deployment
         run: |
-          cd ./function_apps/ingest_sharepoint_files
-          zip -r ../../sptxn-fn-app-build-${{ github.run_number }}.zip . -x "*.git*"
-
-      - name: Azure Login (OIDC)
+          unzip release.zip
+          rm release.zip
+      
+      - name: Login to Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy Function App
+      
+      - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
+        id: deploy-to-function
         with:
           app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
-          package: ./sptxn-fn-app-build-${{ github.run_number }}.zip
+          slot-name: 'Production'
+          package: '.'
