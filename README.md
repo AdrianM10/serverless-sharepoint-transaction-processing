@@ -53,9 +53,11 @@ This project is designed as a learning resource for using Python based Azure Fun
 7. Sign in and accept the permissions requested pop-up.
 8. Enter the below url, replace the site id with the site id you retrieved in **step 5**:
 
-    https://graph.microsoft.com/v1.0/sites/{{site id}}/permissions
+```http
+    https://graph.microsoft.com/v1.0/sites/{{ Site Id }}/permissions
+```
 
-9. Paste the below payload in the request body, populate the **id** and **displayName** values with values for the app you created earlier, the values can be retrieved from overview page of the app.
+9. Paste the below payload in the request body, populate the **id** and **displayName** values with values from the app you created earlier, the values can be retrieved from overview page of the app.
 
 ```json
 {
