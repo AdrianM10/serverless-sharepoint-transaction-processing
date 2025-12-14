@@ -128,6 +128,7 @@ jobs:
         id: deploy-to-function
         with:
           app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
-          slot-name: 'Production'
-          publish-profile: ${{ secrets.PUBLISH_PROFILE }}
+          slot-name: 'Production'          
+          sku: 'flexconsumption'
+          remote-build: true
           package: '.'
