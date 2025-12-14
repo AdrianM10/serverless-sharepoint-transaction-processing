@@ -11,14 +11,10 @@ locals {
 
   base_function_settings = {
     dev = {
-      disabled_functions             = ["IngestSharePointFilesTimer"]
-      SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
-      ENABLE_ORYX_BUILD              = 0
+      disabled_functions = ["IngestSharePointFilesTimer"]
     }
     prod = {
-      disabled_functions             = ["IngestSharePointFilesTimer"]
-      SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
-      ENABLE_ORYX_BUILD              = 0
+      disabled_functions = ["IngestSharePointFilesTimer"]
     }
   }
 
@@ -32,14 +28,8 @@ locals {
     "AzureWebJobs.${func_name}.Disabled" => contains(local.base_function_settings[var.environment].disabled_functions, func_name)
   }
 
-  # Extract build settings from base_function_settings
-  build_settings = {
-    SCM_DO_BUILD_DURING_DEPLOYMENT = local.base_function_settings[var.environment].SCM_DO_BUILD_DURING_DEPLOYMENT
-    ENABLE_ORYX_BUILD              = local.base_function_settings[var.environment].ENABLE_ORYX_BUILD
-  }
-
   # Merge base settings with disabled function settings
-  all_function_app_settings = merge(local.function_app_settings, local.disabled_function_settings, local.build_settings)
+  all_function_app_settings = merge(local.function_app_settings, local.disabled_function_settings)
 
 
 }
