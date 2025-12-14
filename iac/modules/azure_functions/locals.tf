@@ -16,12 +16,12 @@ locals {
     }
     prod = {
       disabled_functions = ["IngestSharePointFilesTimer"]
-      vault_url          = var.vault_url_dev
+      vault_url          = ""
     }
   }
 
   function_app_settings = {
-
+    vault_url = local.base_function_settings[var.environment].vault_url
   }
 
   # Dynamically generate disabled function settings
