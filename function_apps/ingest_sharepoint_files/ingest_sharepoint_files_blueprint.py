@@ -22,7 +22,7 @@ ingest_sp_bp = func.Blueprint()
 @ingest_sp_bp.schedule(
     schedule="0 0 8 * * *",
     arg_name="myTimer",
-    run_on_startup=True,
+    run_on_startup=False,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
@@ -381,6 +381,7 @@ def process_transactions(sharepoint_file, transactions, file_name: str):
             upsert_record(row_data, sharepoint_file, model)
         except Exception as e:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
+            continue
 
 
 def upsert_record(row_data: dict, sharepoint_file: dict, model):
