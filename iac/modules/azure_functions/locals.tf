@@ -11,7 +11,7 @@ locals {
 
   base_function_settings = {
     dev = {
-      disabled_functions = ""
+      disabled_functions = []
       vault_url          = var.vault_url_dev
     }
     prod = {
