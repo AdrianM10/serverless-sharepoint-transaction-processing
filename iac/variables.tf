@@ -69,3 +69,9 @@ variable "psql_admin_sg_object_id" {
   type = string
   sensitive = true
 }
+
+variable "vault_url_dev" {
+  description = "Azure Key Vault URL"
+  type        = string
+  sensitive   = true
+}
