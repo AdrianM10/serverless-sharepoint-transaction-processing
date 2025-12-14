@@ -12,13 +12,13 @@ locals {
   base_function_settings = {
     dev = {
       disabled_functions             = ["IngestSharePointFilesTimer"]
-      SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-      ENABLE_ORYX_BUILD              = "true"
+      SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
+      ENABLE_ORYX_BUILD              = 0
     }
     prod = {
       disabled_functions             = ["IngestSharePointFilesTimer"]
-      SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-      ENABLE_ORYX_BUILD              = "true"
+      SCM_DO_BUILD_DURING_DEPLOYMENT = "false"
+      ENABLE_ORYX_BUILD              = 0
     }
   }
 
