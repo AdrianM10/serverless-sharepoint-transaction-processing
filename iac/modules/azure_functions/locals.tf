@@ -12,9 +12,11 @@ locals {
   base_function_settings = {
     dev = {
       disabled_functions = ["IngestSharePointFilesTimer"]
+      vault_url          = var.vault_url_dev
     }
     prod = {
       disabled_functions = ["IngestSharePointFilesTimer"]
+      vault_url          = var.vault_url_dev
     }
   }
 
@@ -30,6 +32,5 @@ locals {
 
   # Merge base settings with disabled function settings
   all_function_app_settings = merge(local.function_app_settings, local.disabled_function_settings)
-
 
 }
