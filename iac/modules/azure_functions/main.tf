@@ -109,8 +109,6 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "function_alert_query"
     | where timestamp >= ago(5m)
     | where message !contains "Failed to publish status to /memoryactivity"
     | where message !contains "Failed to publish status to /functionactivity"
-    | where message !contains "Temporary failure in name resolution"
-    | where message !contains "Singleton lock renewal failed for blob"
   QUERY
 
     time_aggregation_method = "Count"

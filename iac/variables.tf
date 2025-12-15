@@ -75,3 +75,9 @@ variable "vault_url_dev" {
   type        = string
   sensitive   = true
 }
+
+variable "db_host" {
+  description = "DB Host Endpoint"
+  type = string
+  sensitive = true
+}

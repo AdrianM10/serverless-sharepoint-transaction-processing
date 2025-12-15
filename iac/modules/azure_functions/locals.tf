@@ -13,10 +13,12 @@ locals {
     dev = {
       disabled_functions = []
       vault_url          = var.vault_url_dev
+      DB_HOST            = var.db_host
     }
     prod = {
       disabled_functions = ["IngestSharePointFilesTimer"]
       vault_url          = ""
+      DB_HOST            = ""
     }
   }
 
