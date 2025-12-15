@@ -47,6 +47,7 @@ module "azure_functions" {
   alert_contact_name      = var.alert_config[var.environment].contact_name
   alert_contact_email     = var.alert_config[var.environment].contact_email
   vault_url_dev           = var.vault_url_dev
+  db_host                 = var.db_host
 
   depends_on = [azurerm_resource_group.rg, module.azure_kv]
 
