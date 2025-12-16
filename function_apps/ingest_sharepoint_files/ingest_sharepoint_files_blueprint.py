@@ -10,7 +10,6 @@ import pandas as pd
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
-from sqlalchemy import text
 from sqlmodel import Session
 
 from models import Cards, Transactions, Users, engine, select
