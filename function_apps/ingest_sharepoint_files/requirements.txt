@@ -5,8 +5,7 @@
 azure-functions
 pandas
 openpyxl
-psycopg2
-psycopg2-binary
+psycopg2-binary==2.9.11
 greenlet
 sqlmodel
 alembic
