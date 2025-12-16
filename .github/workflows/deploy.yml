@@ -133,5 +133,5 @@ jobs:
           app-name: sptxn-fn-app-${{ env.ENVIRONMENT }}
           slot-name: "Production"
           sku: "flexconsumption"
-          remote-build: true
+          remote-build: false
           package: "."
