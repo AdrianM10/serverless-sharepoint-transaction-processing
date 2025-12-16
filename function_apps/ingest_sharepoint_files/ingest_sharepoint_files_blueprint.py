@@ -20,9 +20,9 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 0 8 * * *",
+    schedule="0 0 */2 * * *",
     arg_name="myTimer",
-    run_on_startup=True,
+    run_on_startup=False,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
