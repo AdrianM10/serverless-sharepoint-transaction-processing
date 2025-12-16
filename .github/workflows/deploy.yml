@@ -86,13 +86,13 @@ jobs:
           cache: "pip"
 
       - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
+        run: python -m venv venv
+
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       - name: Install dependencies
         run: |
+          source venv/bin/activate
           pip install -r requirements.txt
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
@@ -104,8 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: python-app
-          path: |
-            ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
+          path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
   deploy:
     name: Deploy Function App
     runs-on: ubuntu-latest
