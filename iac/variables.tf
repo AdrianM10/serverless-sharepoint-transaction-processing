@@ -66,8 +66,8 @@ variable "psql_server_name" {
 
 variable "psql_admin_sg_object_id" {
   description = "Postgre SQL admin Entra security group"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
 }
 
 variable "vault_url_dev" {
@@ -78,12 +78,6 @@ variable "vault_url_dev" {
 
 variable "db_host" {
   description = "DB Host Endpoint"
-  type = string
-  sensitive = true
-}
-
-variable "kv_name" {
-  description = "Name of Azure Key Vault"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
 }
