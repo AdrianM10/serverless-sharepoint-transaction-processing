@@ -93,11 +93,12 @@ jobs:
       - name: Install dependencies
         run: |
           source venv/bin/activate
-          pip install -r requirements.txt
+          pip install --target="./.python_packages/lib/site-packages" -r requirements.txt
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       - name: Zip artifact for deployment
-        run: zip -r release.zip .
+        run: |
+          zip -r release.zip . -x "*.git*" -x "*venv*" -x "*__pycache__*" -x "*.pyc" -x "*.python_packages*"
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       - name: Upload artifact for deployment job
