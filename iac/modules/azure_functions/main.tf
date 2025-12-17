@@ -45,7 +45,7 @@ resource "azurerm_function_app_flex_consumption" "functionpp" {
   storage_authentication_type = "StorageAccountConnectionString"
   storage_access_key          = azurerm_storage_account.storage.primary_access_key
   runtime_name                = "python"
-  runtime_version             = "3.12"
+  runtime_version             = "3.13"
   maximum_instance_count      = 40
   instance_memory_in_mb       = 2048
 
@@ -128,12 +128,12 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "function_alert_query"
 }
 
 data "azurerm_key_vault" "kv" {
-  name                = "kv-ssp-txn-dev-01"
+  name                = var.kv_name
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 
 resource "azurerm_role_assignment" "kv_secrets_user" {
-  
+
   scope                = data.azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_function_app_flex_consumption.functionpp.identity[0].principal_id

@@ -58,6 +58,11 @@ variable "alert_contact_email" {
 
 }
 
+variable "kv_name" {
+  description = "Name of Azure Key Vault"
+  type = string
+  sensitive = true
+}
 variable "vault_url_dev" {
   description = "Azure Key Vault URL"
   type        = string
