@@ -98,7 +98,7 @@ jobs:
 
       - name: Zip artifact for deployment
         run: |
-          zip -r release.zip . -x "*.git*" -x "*venv*" -x "*__pycache__*" -x "*.pyc" -x "*.python_packages*"
+          zip -r release.zip . -x "*.git*" -x "*venv*" -x "*__pycache__*" -x "*.pyc"
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       - name: Upload artifact for deployment job
