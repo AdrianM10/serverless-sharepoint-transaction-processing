@@ -81,3 +81,9 @@ variable "db_host" {
   type = string
   sensitive = true
 }
+
+variable "kv_name" {
+  description = "Name of Azure Key Vault"
+  type = string
+  sensitive = true
+}
