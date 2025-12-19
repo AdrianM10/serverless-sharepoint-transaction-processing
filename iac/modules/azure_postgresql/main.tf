@@ -28,6 +28,12 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "psql_fw_rule" {
   end_ip_address   = var.ip_address
 }
 
+resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_access_to_azure_services" {
+  name             = "Allow-Access-To-Azure-Services"
+  server_id        = azurerm_postgresql_flexible_server.psql_server.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "0.0.0.0"
+}
 
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "psql_admin" {
   server_name         = azurerm_postgresql_flexible_server.psql_server.name
