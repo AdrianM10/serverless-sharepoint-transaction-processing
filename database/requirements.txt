@@ -1,6 +1,6 @@
 pandas
 openpyxl
-psycopg2
+psycopg2-binary
 sqlmodel
 black
 isort
