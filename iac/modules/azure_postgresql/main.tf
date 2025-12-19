@@ -27,10 +27,6 @@ resource "azurerm_postgresql_flexible_server_database" "psql_db" {
   collation = "en_US.utf8"
   charset   = "UTF8"
 
-  # prevent the possibility of accidental data loss
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "psql_admin" {
