@@ -19,7 +19,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */15 * * * *",
+    schedule="0 */30 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -275,8 +275,8 @@ def process_single_month(sharepoint_file: dict):
     transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
     process_users(sharepoint_file, users, file_name)
-    # process_cards(sharepoint_file, cards, file_name)
-    # process_transactions(sharepoint_file, transactions, file_name)
+    process_cards(sharepoint_file, cards, file_name)
+    process_transactions(sharepoint_file, transactions, file_name)
 
 
 def process_users(sharepoint_file: dict, users: dict, file_name: str):
