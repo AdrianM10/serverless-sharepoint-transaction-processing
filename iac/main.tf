@@ -85,7 +85,7 @@ module "azure_functions" {
   alert_contact_email     = var.alert_config[var.environment].contact_email
   vault_url_dev           = var.vault_url_dev
   db_host                 = var.db_host
-  functions_subnet_id     = module.azure_postgre_sql.functions_subnet_id
+  functions_subnet_id     = module.azure_vnet.functions_subnet_id
 
   depends_on = [module.azure_postgre_sql, module.azure_vnet, module.azure_kv]
 
