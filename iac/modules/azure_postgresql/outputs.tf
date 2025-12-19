@@ -12,6 +12,6 @@ output "server_id" {
 
 output "private_endpoint_ip" {
   description = "Private IP address of the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.psql_server.private_service_connection[0].private_ip_address
+  value       = azurerm_private_endpoint.postgres_pe.private_service_connection[0].private_ip_address
   sensitive   = true
 }
