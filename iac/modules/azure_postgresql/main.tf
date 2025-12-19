@@ -72,6 +72,7 @@ resource "azurerm_private_endpoint" "postgres_pe" {
     name                           = "pvt-svc-postgres"
     private_connection_resource_id = azurerm_postgresql_flexible_server.psql_server.id
     is_manual_connection           = false
+    subresource_names              = ["postgresqlServer"]
   }
 
   private_dns_zone_group {
