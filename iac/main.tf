@@ -32,24 +32,12 @@ resource "azurerm_resource_group" "rg" {
   }
 }
 
+module "azure_vnet" {
+  source              = "./modules/azure_vnet"
+  resource_group_name = local.resource_names.resource_group
+  location            = var.location
 
-module "azure_functions" {
-  source                  = "./modules/azure_functions"
-  project_name            = var.project_name
-  app_owner               = var.app_owner
-  resource_group_name     = local.resource_names.resource_group
-  location                = var.location
-  storage_account_name    = local.resource_names.storage_account
-  app_service_plan        = local.resource_names.app_service_plan
-  log_analytics_workspace = local.resource_names.log_analytics
-  function_app_names      = local.function_app_names
-  environment             = var.environment
-  alert_contact_name      = var.alert_config[var.environment].contact_name
-  alert_contact_email     = var.alert_config[var.environment].contact_email
-  vault_url_dev           = var.vault_url_dev
-  db_host                 = var.db_host
-
-  depends_on = [azurerm_resource_group.rg, module.azure_kv]
+  depends_on = [azurerm_resource_group.rg]
 
 }
 
@@ -76,6 +64,29 @@ module "azure_postgre_sql" {
   ip_address              = var.ip_address
   psql_server_name        = var.psql_server_name
   psql_admin_sg_object_id = var.psql_admin_sg_object_id
+  vnet_id                 = module.azure_vnet.vnet_id
+  endpoints_subnet_id     = module.azure_vnet.endpoints_subnet_id
 
-  depends_on = [azurerm_resource_group.rg]
+  depends_on = [azurerm_resource_group.rg, module.azure_vnet]
+}
+
+module "azure_functions" {
+  source                  = "./modules/azure_functions"
+  project_name            = var.project_name
+  app_owner               = var.app_owner
+  resource_group_name     = local.resource_names.resource_group
+  location                = var.location
+  storage_account_name    = local.resource_names.storage_account
+  app_service_plan        = local.resource_names.app_service_plan
+  log_analytics_workspace = local.resource_names.log_analytics
+  function_app_names      = local.function_app_names
+  environment             = var.environment
+  alert_contact_name      = var.alert_config[var.environment].contact_name
+  alert_contact_email     = var.alert_config[var.environment].contact_email
+  vault_url_dev           = var.vault_url_dev
+  db_host                 = var.db_host
+  functions_subnet_id     = module.azure_postgre_sql.fqdn
+
+  depends_on = [azurerm_resource_group.rg, module.azure_vnet, module.azure_kv]
+
 }

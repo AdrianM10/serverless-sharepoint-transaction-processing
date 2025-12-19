@@ -53,9 +53,13 @@ resource "azurerm_function_app_flex_consumption" "functionpp" {
 
   https_only = true
 
+  virtual_network_subnet_id = var.functions_subnet_id
+
   site_config {
     minimum_tls_version      = "1.3"
     application_insights_key = azurerm_application_insights.app_insights.instrumentation_key
+
+    vnet_route_all_enabled = true
   }
 
   identity {
@@ -126,6 +130,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "function_alert_query"
   enabled      = true
 
 }
+
 
 data "azurerm_key_vault" "kv" {
   name                = "kv-ssp-txn-dev-01"
