@@ -87,6 +87,6 @@ module "azure_functions" {
   db_host                 = var.db_host
   functions_subnet_id     = module.azure_postgre_sql.functions_subnet_id
 
-  depends_on = [azurerm_resource_group.rg, module.azure_vnet, module.azure_kv]
+  depends_on = [module.azure_postgre_sql, module.azure_vnet, module.azure_kv]
 
 }
