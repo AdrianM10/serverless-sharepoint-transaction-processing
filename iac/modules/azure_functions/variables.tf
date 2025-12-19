@@ -66,6 +66,11 @@ variable "vault_url_dev" {
 
 variable "db_host" {
   description = "DB Host Endpoint"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+}
+
+variable "functions_subnet_id" {
+  description = "Subnet ID for function app vnet integration"
+  type        = string
 }

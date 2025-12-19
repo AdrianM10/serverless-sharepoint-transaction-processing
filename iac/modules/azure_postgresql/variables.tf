@@ -39,6 +39,16 @@ variable "psql_server_name" {
 
 variable "psql_admin_sg_object_id" {
   description = "Postgre SQL admin Entra security group"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+}
+
+variable "vnet_id" {
+  description = "Virtual network ID for private DNS zone link"
+  type        = string
+}
+
+variable "endpoints_subnet_id" {
+  description = "Subnet ID for private endpoint"
+  type        = string
 }
