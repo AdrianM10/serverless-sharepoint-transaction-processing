@@ -182,7 +182,7 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt
 
-      - name: Whitelist GitHub Runner IP address
+      - name: Create GitHub Runner FW rule
         env:
           DB_NAME: ${{ secrets.DB_NAME }}
         run: |
@@ -204,3 +204,15 @@ jobs:
           source venv/bin/activate
           export DB_PASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv) 
           alembic upgrade head
+
+      - name: Delete GitHub Runner FW rule
+        env:
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          echo "::add-mask::$DB_NAME"          
+          RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
+          echo "Runner IP: $RUNNER_IP"       
+          az postgres flexible-server firewall-rule delete \
+            --rule-name github-runner-ip  \
+            --resource-group rg-sp-txn-dev \
+            --name $DB_NAME
