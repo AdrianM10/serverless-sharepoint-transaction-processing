@@ -215,4 +215,5 @@ jobs:
           az postgres flexible-server firewall-rule delete \
             --rule-name github-runner-ip  \
             --resource-group rg-sp-txn-dev \
-            --name $DB_NAME
+            --name $DB_NAME \
+            --yes
