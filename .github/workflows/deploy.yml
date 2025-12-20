@@ -136,3 +136,36 @@ jobs:
           sku: "flexconsumption"
           remote-build: false
           package: "."
+
+  db_migration:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: infrastructure
+    steps:
+      - uses: actions/checkout@v5
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        working-directory: ./database
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Database migration
+        working-directory: ./database
+        run: |
+          source venv/bin/activate
+          export DB_PASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv) 
+          alembic upgrade head
