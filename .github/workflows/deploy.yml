@@ -172,11 +172,26 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt
 
+      - name: Whitelist GitHub Runner IP address
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+        run: |
+          echo "::add-mask::$DB_HOST"          
+          RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
+          echo "Runner IP: $RUNNER_IP"
+          az postgres flexible-server firewall-rule create \
+            -n github-runner-ip \
+            -g rg-sp-txn-dev \
+            -s $DB_HOST \
+            --start-ip-address $RUNNER_IP  \
+            --end-ip-address $RUNNER_IP
+
       - name: Database migration
         working-directory: ./database
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
         run: |
+          echo "::add-mask::$DB_HOST"
           source venv/bin/activate
           export DB_PASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv) 
           alembic upgrade head
