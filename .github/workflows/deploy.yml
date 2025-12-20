@@ -177,6 +177,7 @@ jobs:
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
         run: |
+          echo "::add-mask::$DB_HOST"
           source venv/bin/activate
           export DB_PASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv) 
           alembic upgrade head
