@@ -180,11 +180,10 @@ jobs:
           RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
           echo "Runner IP: $RUNNER_IP"
           az postgres flexible-server firewall-rule create \
-            -n github-runner-ip \
-            -g rg-sp-txn-dev \
-            -s $DB_HOST \
-            --start-ip-address $RUNNER_IP  \
-            --end-ip-address $RUNNER_IP
+            --resource-group rg-sp-txn-dev \
+            --name $DB_HOST \
+            --rule-name github-runner-ip \
+            --start-ip-address $RUNNER_IP
 
       - name: Database migration
         working-directory: ./database
