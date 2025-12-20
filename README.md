@@ -2,12 +2,13 @@
 
 This repository contains a serverless file processing backend app using Azure Functions to ingest data stored in a Microsoft Teams site into PostgreSQL. The datasets are monthly xlsx files containing financial transactions for YE2010.
 
+
 ## Repository Structure
 
 - **`github/workflows/`** - GitHub Actions and CI/CD related configurations
 - **`database/`** - Migration scripts for database
 - **`function_apps/ingest_sharepoint_files/`** - Timer based trigger function app that processes xlsx files from sharepoint and persists data into PostgreSQL
-- **`iac/`** - Terraform modules to deploy Azure Functions, PostgreSQL and Key Vault
+- **`iac/`** - Terraform modules to deploy Azure Functions, PostgreSQL, Virtual Network and Key Vault
 - **`remote_backend_setup/`** - Python script to deploy remote backend required by Terraform
 - **`sample_datasets/`** - Multiple financial transaction datasets
 
@@ -82,7 +83,23 @@ This project is designed as a learning resource for using Python based Azure Fun
 
 ## Usage
 
-[WIP]
+1. Fork this repository to your own account.
+2. Create a security group in Entra named **POSTGRE_SQL_ADMINS**.
+3. [Configure OpenID Connect in Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure).
+4. Create the below repository secrets:
+
+    - ALERT_CONFIG
+    - AZURE_CLIENT_ID
+    - AZURE_SUBSCRIPTION_ID
+    - AZURE_TENANT_ID
+    - DB_HOST
+    - IP_ADDRESS
+    - KV_NAME
+    - POSTGRE_SQL_ADMINS_OBJECT_ID
+    - PSQL_SERVER_NAME
+    - STORAGE_ACCOUNT_NAME
+    - VAULT_URL_DEV
+
 
 ## Technologies Used
 
