@@ -174,14 +174,14 @@ jobs:
 
       - name: Whitelist GitHub Runner IP address
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          echo "::add-mask::$DB_HOST"          
+          echo "::add-mask::$DB_NAME"          
           RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
           echo "Runner IP: $RUNNER_IP"
           az postgres flexible-server firewall-rule create \
             --resource-group rg-sp-txn-dev \
-            --name $DB_HOST \
+            --name $DB_NAME \
             --rule-name github-runner-ip \
             --start-ip-address $RUNNER_IP
 
