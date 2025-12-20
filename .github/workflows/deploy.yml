@@ -2,6 +2,14 @@ name: Deploy Serverless Financial Transactions Processing App
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Perform database migration(y/n)?"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
 
 permissions:
   contents: read
@@ -141,6 +149,7 @@ jobs:
     name: Database Migration
     runs-on: ubuntu-latest
     needs: infrastructure
+    if: github.event.inputs.confirm == 'yes'
     steps:
       - uses: actions/checkout@v5
       - name: Azure login
