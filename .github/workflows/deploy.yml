@@ -3,13 +3,23 @@ name: Deploy Serverless Financial Transactions Processing App
 on:
   workflow_dispatch:
     inputs:
-      confirm:
-        description: "Perform database migration(y/n)?"
+      deploy_infrastructure:
+        description: "Deploy infrastructure (y/n) ?"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "yes"
+
+      db_migration:
+        description: "Perform database migration (y/n)?"
         required: true
         type: choice
         options:
           - "no"
           - "yes"
+        default: "no"
 
 permissions:
   contents: read
@@ -149,7 +159,7 @@ jobs:
     name: Database Migration
     runs-on: ubuntu-latest
     needs: infrastructure
-    if: github.event.inputs.confirm == 'yes'
+    if: github.event.inputs.db_migration == 'yes'
     steps:
       - uses: actions/checkout@v5
       - name: Azure login
@@ -174,14 +184,14 @@ jobs:
 
       - name: Whitelist GitHub Runner IP address
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          echo "::add-mask::$DB_HOST"          
+          echo "::add-mask::$DB_NAME"          
           RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
           echo "Runner IP: $RUNNER_IP"
           az postgres flexible-server firewall-rule create \
             --resource-group rg-sp-txn-dev \
-            --name $DB_HOST \
+            --name $DB_NAME \
             --rule-name github-runner-ip \
             --start-ip-address $RUNNER_IP
 
