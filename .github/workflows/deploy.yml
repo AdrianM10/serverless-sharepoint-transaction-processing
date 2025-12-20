@@ -43,6 +43,7 @@ jobs:
   infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
+    if: github.event.inputs.deploy_infrastructure == 'yes'
     env:
       TF_VAR_kv_name_base: ${{ secrets.KV_NAME }}
       TF_VAR_alert_config: ${{ secrets.ALERT_CONFIG }}
