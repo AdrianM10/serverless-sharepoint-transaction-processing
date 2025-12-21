@@ -12,8 +12,17 @@ on:
           - "no"
         default: "yes"
 
+      build_function:
+        description: "Build & Deploy function (y/n) ?"
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+        default: "no"
+
       db_migration:
-        description: "Perform database migration (y/n)?"
+        description: "Perform database migration (y/n) ?"
         required: true
         type: choice
         options:
@@ -90,9 +99,9 @@ jobs:
         working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
 
   build:
-    name: Build Function App
+    name: Build Function
     runs-on: ubuntu-latest
-    needs: infrastructure
+    if: github.event.inputs.build_function == 'yes'
 
     steps:
       - name: Checkout repository
@@ -126,7 +135,7 @@ jobs:
           name: python-app
           path: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/release.zip
   deploy:
-    name: Deploy Function App
+    name: Deploy Function
     runs-on: ubuntu-latest
     needs: build
 
