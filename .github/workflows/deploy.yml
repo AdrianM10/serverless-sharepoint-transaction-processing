@@ -12,15 +12,6 @@ on:
           - "no"
         default: "yes"
 
-      build_function:
-        description: "Build & Deploy function (y/n) ?"
-        required: true
-        type: choice
-        options:
-          - "yes"
-          - "no"
-        default: "no"
-
       db_migration:
         description: "Perform database migration (y/n) ?"
         required: true
@@ -101,7 +92,7 @@ jobs:
   build:
     name: Build Function
     runs-on: ubuntu-latest
-    if: github.event.inputs.build_function == 'yes'
+    needs: infrastructure
 
     steps:
       - name: Checkout repository
