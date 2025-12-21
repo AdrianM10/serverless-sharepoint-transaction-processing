@@ -92,8 +92,18 @@ def retrieve_yearly_directories() -> list[str] | None:
         return None
 
 
-def retrieve_monthly_directories(yearly_directory: str) -> list[str]:
-    """Retrieve sharepoint directories (Monthly)"""
+def retrieve_monthly_directories(yearly_directory: str) -> list[str] | None:
+    """
+    Retrieve sharepoint directories (Monthly) for a given year.
+
+    Args:
+        yearly_directory (str): Directory name for a given year.
+
+    Returns:
+        list[str] | None: A list of monthly directory names matching a 6 digit pattern
+                          (e.g 201001, 201002, 201003...) or None if an error is encountered.
+
+    """
 
     try:
 
@@ -106,6 +116,7 @@ def retrieve_monthly_directories(yearly_directory: str) -> list[str]:
         retrieved_monthly_directories = asyncio.run(
             retrieve_sharepoint_directories(path_relative_to_root, pattern)
         )
+
         return retrieved_monthly_directories
 
     except Exception as e:
