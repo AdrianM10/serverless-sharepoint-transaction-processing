@@ -11,8 +11,9 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
+from itertools import batched
 
-from models import Cards, Transactions, Users, engine, select
+from models import Cards, Transactions, Users, engine, select, insert
 
 ingest_sp_bp = func.Blueprint()
 
@@ -21,7 +22,7 @@ ingest_sp_bp = func.Blueprint()
 @ingest_sp_bp.schedule(
     schedule="0 0 */2 * * *",
     arg_name="myTimer",
-    run_on_startup=False,
+    run_on_startup=True,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
@@ -274,8 +275,8 @@ def process_single_month(sharepoint_file: dict):
     cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
     transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
-    process_users(sharepoint_file, users, file_name)
-    process_cards(sharepoint_file, cards, file_name)
+    # process_users(sharepoint_file, users, file_name)
+    # process_cards(sharepoint_file, cards, file_name)
     process_transactions(sharepoint_file, transactions, file_name)
 
 
@@ -351,6 +352,9 @@ def process_cards(sharepoint_file, cards, file_name: str):
 def process_transactions(sharepoint_file, transactions, file_name: str):
     """Process rows from transactions sheet in xlsx file(s)"""
 
+    processed_transactions = []
+    model = Transactions
+
     for index, row in transactions.iterrows():
 
         try:
@@ -375,11 +379,26 @@ def process_transactions(sharepoint_file, transactions, file_name: str):
                 "source": file_name,
             }
 
-            model = Transactions
+            processed_transactions.append(row_data)
 
-            upsert_record(row_data, sharepoint_file, model)
         except Exception as e:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
+            continue
+
+    bulk_insert(processed_transactions, model)
+
+
+def bulk_insert(processed_transactions: list[dict], model):
+    """Bulk insert records"""
+    for batch in batched(processed_transactions, 1000):
+        try:
+            with Session(engine) as session:
+
+                session.exec(insert(model), params=batch)
+                session.commit()
+
+        except Exception as e:
+            logging.error(f"An error occurred inserting batch: {e} ")
             continue
 
 
