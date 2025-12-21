@@ -215,7 +215,7 @@ def generate_graph_client():
         logging.error(f"An error occurred generating graph client: {e}")
 
 
-async def download_sharepoint_files(files_to_download: list[dict]) -> None:
+async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]:
 
     graph_client = generate_graph_client()
 
@@ -330,7 +330,7 @@ def process_users(users: list[dict], file_name: str) -> None:
 
 
 def process_cards(cards, file_name: str) -> None:
-    """Process rows from cards sheet in xlsx file(s)"""
+    """Process rows from cards sheet in xlsx file"""
 
     model = Cards
     processed_rows = []
@@ -368,7 +368,7 @@ def process_cards(cards, file_name: str) -> None:
 
 
 def process_transactions(transactions, file_name: str) -> None:
-    """Process rows from transactions sheet in xlsx file(s)"""
+    """Process rows from transactions sheet in xlsx file"""
 
     processed_rows = []
     model = Transactions
