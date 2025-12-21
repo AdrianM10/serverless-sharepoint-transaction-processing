@@ -68,7 +68,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     logging.info("Python timer trigger function executed.")
 
 
-def retrieve_yearly_directories():
+def retrieve_yearly_directories() -> list[str]:
     """Retrieve sharepoint directories (Yearly)"""
 
     try:
@@ -87,7 +87,7 @@ def retrieve_yearly_directories():
         return None
 
 
-def retrieve_monthly_directories(yearly_directory: str):
+def retrieve_monthly_directories(yearly_directory: str) -> list[str]:
     """Retrieve sharepoint directories (Monthly)"""
 
     try:
@@ -108,7 +108,7 @@ def retrieve_monthly_directories(yearly_directory: str):
         return None
 
 
-async def retrieve_sharepoint_directories(path_relative_to_root: str, pattern: str):
+async def retrieve_sharepoint_directories(path_relative_to_root: str, pattern: str) -> list[str]:
     """Retrieve directories in SharePoint site matching yearly pattern i.e 'YE2010'"""
 
     try:
@@ -147,7 +147,7 @@ async def retrieve_sharepoint_directories(path_relative_to_root: str, pattern: s
             f"An error occurred retrieving sharepoint directories: {e}")
 
 
-async def retrieve_files(path_relative_to_root: str):
+async def retrieve_files(path_relative_to_root: str) -> list[dict]:
     """Retrieve file(s) metadata containing file 'id', 'name', 'web_url', 'last_modified'"""
 
     graph_client = generate_graph_client()
@@ -215,7 +215,7 @@ def generate_graph_client():
         logging.error(f"An error occurred generating graph client: {e}")
 
 
-async def download_sharepoint_files(files_to_download: list[dict]):
+async def download_sharepoint_files(files_to_download: list[dict]) -> None:
 
     graph_client = generate_graph_client()
 
@@ -258,7 +258,7 @@ async def download_sharepoint_files(files_to_download: list[dict]):
     return file_paths
 
 
-async def ingest_sharepoint_files(sharepoint_files: list[dict]):
+async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
     """Ingest records from each sheet in xlsx file(s)"""
 
     try:
@@ -273,7 +273,7 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]):
         logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
 
 
-def process_single_month(sharepoint_file: dict):
+def process_single_month(sharepoint_file: dict) -> None:
 
     logging.info(f"Processing {sharepoint_file['name']}...")
 
@@ -290,7 +290,7 @@ def process_single_month(sharepoint_file: dict):
     process_transactions(transactions, file_name)
 
 
-def process_users(users: list[dict], file_name: str):
+def process_users(users: list[dict], file_name: str) -> None:
     """Process rows from users sheet in xlsx file"""
 
     model = Users
@@ -329,7 +329,7 @@ def process_users(users: list[dict], file_name: str):
     bulk_insert(processed_rows, model)
 
 
-def process_cards(cards, file_name: str):
+def process_cards(cards, file_name: str) -> None:
     """Process rows from cards sheet in xlsx file(s)"""
 
     model = Cards
@@ -367,7 +367,7 @@ def process_cards(cards, file_name: str):
     bulk_insert(processed_rows, model)
 
 
-def process_transactions(transactions, file_name: str):
+def process_transactions(transactions, file_name: str) -> None:
     """Process rows from transactions sheet in xlsx file(s)"""
 
     processed_rows = []
@@ -409,7 +409,7 @@ def process_transactions(transactions, file_name: str):
     bulk_insert(processed_rows, model)
 
 
-def bulk_insert(processed_rows: list[dict], model):
+def bulk_insert(processed_rows: list[dict], model) -> None:
     """Bulk insert records"""
 
     batches = (len(processed_rows) // 1000)
