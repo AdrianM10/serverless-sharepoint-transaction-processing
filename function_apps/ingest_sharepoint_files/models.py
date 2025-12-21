@@ -7,7 +7,7 @@ from typing import Optional
 
 from azure.identity import DefaultAzureCredential
 from sqlalchemy import BigInteger, SmallInteger
-from sqlmodel import Column, Field, SQLModel, create_engine, select
+from sqlmodel import Column, Field, SQLModel, create_engine, select, insert
 
 
 class Cards(SQLModel, table=True):
@@ -70,7 +70,7 @@ class Users(SQLModel, table=True):
 
 # db_password = os.environ.get("DB_PASSWORD")
 
-# For Postgres running locally use below
+## For Postgres running locally use below
 # engine = create_engine(
 #     f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
 # )

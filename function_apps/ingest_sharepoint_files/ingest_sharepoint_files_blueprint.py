@@ -11,8 +11,9 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
+from itertools import batched
 
-from models import Cards, Transactions, Users, engine, select
+from models import Cards, Transactions, Users, engine, select, insert
 
 ingest_sp_bp = func.Blueprint()
 
@@ -282,6 +283,9 @@ def process_single_month(sharepoint_file: dict):
 def process_users(sharepoint_file: dict, users: dict, file_name: str):
     """Process rows from users sheet in xlsx file"""
 
+    model = Users
+    processed_rows = []
+
     for index, row in users.iterrows():
 
         try:
@@ -304,18 +308,22 @@ def process_users(sharepoint_file: dict, users: dict, file_name: str):
                 "source": file_name,
             }
 
-            model = Users
+            processed_rows.append(row_data)
 
-            upsert_record(row_data, sharepoint_file, model)
         except Exception as e:
             logging.error(
                 f"An error occurred processing {row["id"]} record from users sheet: {e}"
             )
             continue
 
+    bulk_insert(processed_rows, model)
+
 
 def process_cards(sharepoint_file, cards, file_name: str):
     """Process rows from cards sheet in xlsx file(s)"""
+
+    model = Cards
+    processed_rows = []
 
     for index, row in cards.iterrows():
 
@@ -338,8 +346,7 @@ def process_cards(sharepoint_file, cards, file_name: str):
                 "source": file_name,
             }
 
-            model = Cards
-            upsert_record(row_data, sharepoint_file, model)
+            processed_rows.append(row_data)
 
         except Exception as e:
             logging.error(
@@ -347,9 +354,14 @@ def process_cards(sharepoint_file, cards, file_name: str):
             )
             continue
 
+    bulk_insert(processed_rows, model)
+
 
 def process_transactions(sharepoint_file, transactions, file_name: str):
     """Process rows from transactions sheet in xlsx file(s)"""
+
+    processed_rows = []
+    model = Transactions
 
     for index, row in transactions.iterrows():
 
@@ -375,41 +387,30 @@ def process_transactions(sharepoint_file, transactions, file_name: str):
                 "source": file_name,
             }
 
-            model = Transactions
+            processed_rows.append(row_data)
 
-            upsert_record(row_data, sharepoint_file, model)
         except Exception as e:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
+    bulk_insert(processed_rows, model)
 
-def upsert_record(row_data: dict, sharepoint_file: dict, model):
 
-    try:
+def bulk_insert(processed_rows: list[dict], model):
+    """Bulk insert records"""
 
-        with Session(engine) as session:
+    batches = (len(processed_rows) // 1000)
+    logging.info(f"Total number of batches to insert for {model}: {batches}")
 
-            name = sharepoint_file["name"]
-            path = sharepoint_file["path"]
+    for batch_index, batch in enumerate(batched(processed_rows, 1000)):
+        logging.info(f"Inserting batch {batch_index}...")
+        
+        try:
+            with Session(engine) as session:
 
-            # Check if record exists in table
-            statement = select(model).where(model.id == row_data["id"])
-            result = session.exec(statement).first()
+                session.exec(insert(model), params=batch)
+                session.commit()
 
-            if result is None:
-                result = model(**row_data)
-
-            # Sync data and update values
-            for key, value in row_data.items():
-                setattr(result, key, value)
-
-            session.add(result)
-            session.commit()
-
-            session.refresh(result)
-            logging.info(f"Processed {result} data")
-
-    except Exception as e:
-        logging.error(
-            f"An error occurred performing upsert operation on record {result["id"]}: {e}"
-        )
+        except Exception as e:
+            logging.error(f"An error occurred inserting batch: {e} ")
+            continue
