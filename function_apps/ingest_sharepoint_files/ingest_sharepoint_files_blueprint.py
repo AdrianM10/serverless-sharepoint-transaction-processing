@@ -84,7 +84,6 @@ def retrieve_yearly_directories() -> list[str] | None:
         yearly_directories = asyncio.run(
             retrieve_sharepoint_directories(path_relative_to_root, pattern)
         )
-        logging.info(f"yearly_directories: {yearly_directories}")
 
         return yearly_directories
     except Exception as e:
