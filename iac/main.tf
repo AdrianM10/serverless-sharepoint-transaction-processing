@@ -65,6 +65,7 @@ module "azure_postgre_sql" {
   psql_admin_sg_object_id = var.psql_admin_sg_object_id
   vnet_id                 = module.azure_vnet.vnet_id
   endpoints_subnet_id     = module.azure_vnet.endpoints_subnet_id
+  tenant_id               = var.tenant_id
 
   depends_on = [azurerm_resource_group.rg, module.azure_vnet]
 }
