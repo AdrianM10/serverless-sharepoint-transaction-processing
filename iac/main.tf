@@ -26,7 +26,6 @@ resource "azurerm_resource_group" "rg" {
 
   tags = {
     Environment         = var.environment
-    Department          = "CCoE"
     Application         = var.project_name
     "Application Owner" = var.app_owner
   }
