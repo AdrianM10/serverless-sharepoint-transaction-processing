@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import tempfile
+from itertools import batched
 
 import azure.functions as func
 import pandas as pd
@@ -11,9 +12,8 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
-from itertools import batched
 
-from models import Cards, Transactions, Users, engine, select, insert
+from models import SQLModel, Cards, Transactions, Users, engine, insert, select
 
 ingest_sp_bp = func.Blueprint()
 
@@ -35,7 +35,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
         for yearly_directory in yearly_directories:
 
-            monthly_directories = retrieve_monthly_directories(yearly_directory)
+            monthly_directories = retrieve_monthly_directories(
+                yearly_directory)
 
             logging.info(f"monthly_directories: {monthly_directories}")
 
@@ -51,7 +52,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     )
                     logging.info(path_relative_to_root)
 
-                    retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
+                    retrieved_files = asyncio.run(
+                        retrieve_files(path_relative_to_root))
 
                     files_to_download.extend(retrieved_files)
 
@@ -72,8 +74,7 @@ def retrieve_yearly_directories() -> list[str] | None:
 
     Returns:
         list[str] | None: A list of yearly directory names matching the pattern 'YE' followed by
-                          a 4 digit year (e.g YE2010, YE2011... ) or None if an error is encountered.
-
+                          a 4 digit year (e.g YE2010, YE2011... ) or None if an error is encountered
     """
 
     try:
@@ -93,15 +94,14 @@ def retrieve_yearly_directories() -> list[str] | None:
 
 def retrieve_monthly_directories(yearly_directory: str) -> list[str] | None:
     """
-    Retrieve sharepoint directories (Monthly) for a given year.
+    Retrieve sharepoint directories (Monthly) for a given year
 
     Args:
-        yearly_directory (str): Directory name for a given year.
+        yearly_directory (str): Directory name for a given year
 
     Returns:
         list[str] | None: A list of monthly directory names matching a 6 digit pattern
-                          (e.g 201001, 201002, 201003...) or None if an error is encountered.
-
+                          (e.g 201001, 201002, 201003...) or None if an error is encountered
     """
 
     try:
@@ -125,8 +125,18 @@ def retrieve_monthly_directories(yearly_directory: str) -> list[str] | None:
 
 async def retrieve_sharepoint_directories(
     path_relative_to_root: str, pattern: str
-) -> list[str]:
-    """Retrieve directories in SharePoint site matching yearly pattern i.e 'YE2010'"""
+) -> list[str] | None:
+    """
+    Retrieve directories in SharePoint site matching yearly or monthly pattern i.e 'YE2010
+
+    Args:
+        path_relative_to_root (str) : SharePoint path relative to the drive root
+        pattern (str) : Regex pattern matching yearly or monthly directory pattern
+
+    Returns:
+            list[str] : Subdirectories listed under path relative to root or None if an error is encountered
+
+    """
 
     try:
 
@@ -135,7 +145,8 @@ async def retrieve_sharepoint_directories(
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -155,15 +166,25 @@ async def retrieve_sharepoint_directories(
                 if re.match(pattern, item.name):
                     directories.append(item.name)
 
-        # logging.info(directories)
         return directories
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(
+            f"An error occurred retrieving sharepoint directories: {e}")
+        return None
 
 
-async def retrieve_files(path_relative_to_root: str) -> list[dict]:
-    """Retrieve file(s) metadata containing file 'id', 'name', 'web_url', 'last_modified'"""
+async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
+    """
+    Retrieve file(s) metadata containing file 'id', 'name', 'web_url'
+
+    Args:
+        path_relative_to_root (str): SharePoint path relative to the drive root
+
+    Returns:
+            list[dict]: Metadata for files listed under directory or None if an error is encountered
+
+    """
 
     graph_client = generate_graph_client()
 
@@ -197,21 +218,32 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict]:
         return files_to_download
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(
+            f"An error occurred retrieving file from SharePoint: {e}")
+        return None
 
 
-def generate_graph_client():
-    """Create instance of Microsoft Graph client"""
+def generate_graph_client() -> GraphServiceClient | None:
+    """
+    Create instance of Microsoft Graph client
+
+    Returns:
+            GraphServiceClient : An instance of Microsoft Graph client required to interact with
+                                 Microsoft Teams / SharePoint or None if an error is encountered
+
+    """
 
     try:
 
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -219,58 +251,84 @@ def generate_graph_client():
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
         logging.error(f"An error occurred generating graph client: {e}")
+        return None
 
 
-async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]:
+async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict] | None:
+    """
+    Downloads files from Microsoft Teams site / SharePoint
 
-    graph_client = generate_graph_client()
+    Args:
+        files_to_download (list[dict]): Files metadata from Microsoft Teams / SharePoint containing
+                                        the "drive item id's" required to download the files
 
-    credential = DefaultAzureCredential()
+    Returns:
+        list[dict]: A list of dictionaries containing 'name' and 'path' for each
+                    successfully downloaded file or None if an error is encountered
+    """
 
-    vault_url = os.getenv("vault_url")
-    secret_client = SecretClient(vault_url=vault_url, credential=credential)
+    try:
 
-    drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
+        graph_client = generate_graph_client()
 
-    file_paths = []
+        credential = DefaultAzureCredential()
 
-    for file_to_download in files_to_download:
-        try:
-            logging.info(f"drive_id: {drive_id}")
-            drive_item_id = file_to_download["id"]
-            logging.info(f"drive_item_id: {drive_item_id}")
-            name = file_to_download["name"]
+        vault_url = os.getenv("vault_url")
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
-            # Get temp/tmp directory location
-            temp_file_path = tempfile.gettempdir()
+        drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
-            file_path = os.path.join(temp_file_path, name)
+        file_paths = []
 
-            download = (
-                await graph_client.drives.by_drive_id(drive_id)
-                .items.by_drive_item_id(drive_item_id)
-                .content.get()
-            )
+        for file_to_download in files_to_download:
+            try:
+                logging.info(f"drive_id: {drive_id}")
+                drive_item_id = file_to_download["id"]
+                logging.info(f"drive_item_id: {drive_item_id}")
+                name = file_to_download["name"]
 
-            with open(file_path, "wb") as file:
-                file.write(download)
+                # Get temp/tmp directory location
+                temp_file_path = tempfile.gettempdir()
 
-            file_metadata = {"name": name, "path": file_path}
+                file_path = os.path.join(temp_file_path, name)
 
-            file_paths.append(file_metadata)
-        except Exception as e:
-            logging.error(f"An error occurred downloading file: {name}. {e}")
+                download = (
+                    await graph_client.drives.by_drive_id(drive_id)
+                    .items.by_drive_item_id(drive_item_id)
+                    .content.get()
+                )
 
-    return file_paths
+                with open(file_path, "wb") as file:
+                    file.write(download)
+
+                file_metadata = {"name": name, "path": file_path}
+
+                file_paths.append(file_metadata)
+            except Exception as e:
+                logging.error(
+                    f"An error occurred downloading file: {name}. {e}")
+
+        return file_paths
+    except Exception as e:
+        logging.error(f"An error occurred downloading file(s): {e}")
+        return None
 
 
 async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
-    """Ingest records from each sheet in xlsx file(s)"""
+    """
+    Ingest records from xlsx file
+
+    Args:
+        sharepoint_files (list[dict]): List of file metadata dictionaries containing 'name' and 'path'
+                                       key/value pairs for xlsx files
+    """
 
     try:
 
@@ -278,12 +336,22 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
 
             for sharepoint_file in sharepoint_files:
 
-                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
+                tg.create_task(asyncio.to_thread(
+                    process_single_month, sharepoint_file))
     except Exception as e:
         logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
+        return None
 
 
 def process_single_month(sharepoint_file: dict) -> None:
+    """
+    Reads 'users', 'cards', 'transactions' sheets into dataframes
+
+    Args:
+        sharepoint_file (dict): File metadata dictionary containing 'name' and 'path' key/value pairs
+        for xlsx with user, card and transactions data
+
+    """
 
     logging.info(f"Processing {sharepoint_file['name']}...")
 
@@ -292,15 +360,23 @@ def process_single_month(sharepoint_file: dict) -> None:
 
     users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
     cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
-    transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(
+        open(file_path, "rb"), sheet_name="transactions")
 
     process_users(users, file_name)
     process_cards(cards, file_name)
     process_transactions(transactions, file_name)
 
 
-def process_users(users: list[dict], file_name: str) -> None:
-    """Process rows from users sheet in xlsx file"""
+def process_users(users: pd.DataFrame, file_name: str) -> None:
+    """
+    Iterates over dataframe rows, creating key/value pairs for each row. Rows are then appended to a
+    single list of dictionaries ready to be inserted into db.
+
+    Args:
+        users (pd.DataFrame): Pandas Dataframe containing users data
+        file_name (str): Name of the source file for tracking data origin
+    """
 
     model = Users
     processed_rows = []
@@ -338,8 +414,15 @@ def process_users(users: list[dict], file_name: str) -> None:
     bulk_insert(processed_rows, model)
 
 
-def process_cards(cards, file_name: str) -> None:
-    """Process rows from cards sheet in xlsx file"""
+def process_cards(cards: pd.DataFrame, file_name: str) -> None:
+    """
+    Iterates over dataframe rows, creating key/value pairs for each row. Rows are then appended to a
+    single list of dictionaries ready to be inserted into db.
+
+    Args:
+        cards (pd.DataFrame): Pandas Dataframe containing cards data
+        file_name (str): Name of the source file for tracking data origin
+    """
 
     model = Cards
     processed_rows = []
@@ -376,8 +459,15 @@ def process_cards(cards, file_name: str) -> None:
     bulk_insert(processed_rows, model)
 
 
-def process_transactions(transactions, file_name: str) -> None:
-    """Process rows from transactions sheet in xlsx file"""
+def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
+    """
+     Iterates over dataframe rows, creating key/value pairs for each row. Rows are then appended to a
+    single list of dictionaries ready to be inserted into db.
+
+    Args:
+        transactions (pd.DataFrame): Pandas Dataframe containing transactions data
+        file_name (str): Name of the source file for tracking data origin
+    """
 
     processed_rows = []
     model = Transactions
@@ -395,10 +485,12 @@ def process_transactions(transactions, file_name: str) -> None:
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": (
-                    None if pd.isna(row["merchant_city"]) else row["merchant_city"]
+                    None if pd.isna(row["merchant_city"]
+                                    ) else row["merchant_city"]
                 ),
                 "merchant_state": (
-                    None if pd.isna(row["merchant_state"]) else row["merchant_state"]
+                    None if pd.isna(row["merchant_state"]
+                                    ) else row["merchant_state"]
                 ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
@@ -409,14 +501,21 @@ def process_transactions(transactions, file_name: str) -> None:
             processed_rows.append(row_data)
 
         except Exception as e:
-            logging.error(f"An error occurred processing record {row_data['id']}: {e}")
+            logging.error(
+                f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
     bulk_insert(processed_rows, model)
 
 
-def bulk_insert(processed_rows: list[dict], model) -> None:
-    """Bulk insert records"""
+def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
+    """
+    Bulk insert records into database in batches of 1000
+
+    Args:
+        processed_rows (list[dict]): A list of processed dictionaries ready to be inserted into db
+        model (type[SQLModel]): SQLModel table class representing the target database table
+    """
 
     batches = len(processed_rows) // 1000
     logging.info(f"Total number of batches to insert for {model}: {batches}")
