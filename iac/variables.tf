@@ -82,3 +82,8 @@ variable "db_host" {
   sensitive   = true
 }
 
+variable "tenant_id" {
+  description = "Azure Tenant ID"
+  type = string
+  sensitive = true
+}

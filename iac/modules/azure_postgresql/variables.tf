@@ -53,3 +53,9 @@ variable "endpoints_subnet_id" {
   description = "Subnet ID for private endpoint"
   type        = string
 }
+
+variable "tenant_id" {
+  description = "Azure Tenant ID"
+  type        = string
+  sensitive   = true
+}
