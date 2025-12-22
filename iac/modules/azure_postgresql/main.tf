@@ -27,6 +27,10 @@ resource "azurerm_postgresql_flexible_server_database" "psql_db" {
   collation = "en_US.utf8"
   charset   = "UTF8"
 
+  lifecycle {
+    prevent_destroy = true
+  }
+
 }
 
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "psql_admin" {
@@ -61,7 +65,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "pvt_dns_zone_link" {
 resource "azurerm_private_endpoint" "postgres_pe" {
   name                = "sp-txn-postgres-sql-pe"
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   subnet_id           = var.endpoints_subnet_id
 
   private_service_connection {
