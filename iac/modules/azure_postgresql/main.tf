@@ -36,7 +36,7 @@ resource "azurerm_postgresql_flexible_server_database" "psql_db" {
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "psql_admin" {
   server_name         = azurerm_postgresql_flexible_server.psql_server.name
   resource_group_name = data.azurerm_resource_group.rg.name
-  tenant_id           = data.azurerm_client_config.current.tenant_id
+  tenant_id           = var.tenant_id
   object_id           = var.psql_admin_sg_object_id
   principal_name      = "POSTGRE_SQL_ADMINS"
   principal_type      = "Group"
