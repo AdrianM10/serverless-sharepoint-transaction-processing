@@ -5,7 +5,7 @@ data "azurerm_resource_group" "rg" {
 
 resource "azurerm_virtual_network" "vnet" {
   name                = "sp-txn-vnet"
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.rg.name
   address_space       = ["10.1.0.0/16"]
 

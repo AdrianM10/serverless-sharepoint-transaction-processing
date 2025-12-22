@@ -5,7 +5,7 @@ data "azurerm_resource_group" "rg" {
 resource "azurerm_storage_account" "storage" {
   name                     = var.storage_account_name
   resource_group_name      = data.azurerm_resource_group.rg.name
-  location                 = data.azurerm_resource_group.rg.location
+  location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
@@ -19,7 +19,7 @@ resource "azurerm_storage_container" "container" {
 
 resource "azurerm_log_analytics_workspace" "law" {
   name                = var.log_analytics_workspace
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   resource_group_name = data.azurerm_resource_group.rg.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
@@ -29,7 +29,7 @@ resource "azurerm_log_analytics_workspace" "law" {
 resource "azurerm_service_plan" "appserviceplan" {
   name                = var.app_service_plan
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   sku_name            = "FC1"
   os_type             = "Linux"
 }
@@ -37,7 +37,7 @@ resource "azurerm_service_plan" "appserviceplan" {
 resource "azurerm_function_app_flex_consumption" "functionpp" {
   name                = "sptxn-fn-app-${var.environment}"
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   service_plan_id     = azurerm_service_plan.appserviceplan.id
 
   storage_container_type      = "blobContainer"
@@ -70,7 +70,7 @@ resource "azurerm_function_app_flex_consumption" "functionpp" {
 resource "azurerm_application_insights" "app_insights" {
   name                = "sptxn-fn-app-${var.environment}-app-insights"
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
   workspace_id        = azurerm_log_analytics_workspace.law.id
   application_type    = "web"
 
@@ -98,7 +98,7 @@ resource "azurerm_monitor_action_group" "function_alerts" {
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "function_alert_query" {
   name                = "sptxn-fn-app-${var.environment}-alert-rule"
   resource_group_name = data.azurerm_resource_group.rg.name
-  location            = data.azurerm_resource_group.rg.location
+  location            = var.location
 
 
   evaluation_frequency = "PT5M"
