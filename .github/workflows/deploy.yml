@@ -83,6 +83,7 @@ jobs:
 
       - name: Terraform Apply
         run: |
+          echo "::add-mask::$ARM_SUBSCRIPTION_ID"
           terraform apply \
             -var="environment=${{ env.ENVIRONMENT }}" \
             -var-file="terraform.tfvars" \
