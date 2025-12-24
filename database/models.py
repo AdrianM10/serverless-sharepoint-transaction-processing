@@ -1,6 +1,6 @@
 import os
 import urllib.parse
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -67,29 +67,43 @@ class Users(SQLModel, table=True):
     source: Optional[str] | None = None
 
 
+class DataImport(SQLModel, table=True):
+    __tablename__ = "data_import"
+    id: str | None = Field(default=None, primary_key=True)
+    file_name: str
+    size: int = Field(default=None, sa_column=Column(BigInteger()))
+    created_at: Optional[datetime] | None = None
+    last_modified_date: Optional[datetime] | None = None
+    started_at: Optional[date] | None = None
+    finished_at: Optional[date] | None = None
+    users_status: Optional[str] | None = None
+    cards_status: Optional[str] | None = None
+    transactions_status: Optional[str] | None = None
+
+
 db_password = os.environ.get("DB_PASSWORD")
 
 # For Postgres running locally use below
-# engine = create_engine(
-#     f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
-# )
+engine = create_engine(
+    f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
+)
 
 # For Postgres running in Azure and using token based auth
-credential = DefaultAzureCredential()
-token = credential.get_token(
-    "https://ossrdbms-aad.database.windows.net/.default")
-access_token = token.token
+# credential = DefaultAzureCredential()
+# token = credential.get_token(
+#     "https://ossrdbms-aad.database.windows.net/.default")
+# access_token = token.token
 
-username = "POSTGRESQL_ADMINS"
-encoded_username = urllib.parse.quote(username, safe="")
-host = os.environ.get("DB_HOST")
-db_name = "transactions"
+# username = "POSTGRESQL_ADMINS"
+# encoded_username = urllib.parse.quote(username, safe="")
+# host = os.environ.get("DB_HOST")
+# db_name = "transactions"
 
-connection_string = f"postgresql://{encoded_username}:{host}/{db_name}"
+# connection_string = f"postgresql://{encoded_username}:{host}/{db_name}"
 
-engine = create_engine(
-    connection_string,
-    connect_args={
-        "password": access_token,
-    },
-)
+# engine = create_engine(
+#     connection_string,
+#     connect_args={
+#         "password": access_token,
+#     },
+# )
