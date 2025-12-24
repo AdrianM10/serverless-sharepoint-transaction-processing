@@ -31,28 +31,22 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
     yearly_directories = retrieve_yearly_directories()
 
     if yearly_directories:
-
         for yearly_directory in yearly_directories:
-
-            monthly_directories = retrieve_monthly_directories(
-                yearly_directory)
+            monthly_directories = retrieve_monthly_directories(yearly_directory)
 
             logging.info(f"monthly_directories: {monthly_directories}")
 
             if monthly_directories:
-
                 # Retrieve files from monthly subdirectory
                 files_to_download = []
 
                 for month_directory in monthly_directories:
-
                     path_relative_to_root = (
                         f"root:/General/Transactions/Finance/YE2010/{month_directory}:"
                     )
                     logging.info(path_relative_to_root)
 
-                    retrieved_files = asyncio.run(
-                        retrieve_files(path_relative_to_root))
+                    retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
 
                     files_to_download.extend(retrieved_files)
 
@@ -77,7 +71,6 @@ def retrieve_yearly_directories() -> list[str] | None:
     """
 
     try:
-
         path_relative_to_root = "root:/General/Transactions/Finance:"
         pattern = r"^YE\d{4}$"
 
@@ -104,7 +97,6 @@ def retrieve_monthly_directories(yearly_directory: str) -> list[str] | None:
     """
 
     try:
-
         path_relative_to_root = (
             f"root:/General/Transactions/Finance/{yearly_directory}:"
         )
@@ -138,14 +130,12 @@ async def retrieve_sharepoint_directories(
     """
 
     try:
-
         graph_client = generate_graph_client()
 
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -159,17 +149,14 @@ async def retrieve_sharepoint_directories(
         )
 
         if items and items.value:
-
             for item in items.value:
-
                 if re.match(pattern, item.name):
                     directories.append(item.name)
 
         return directories
 
     except Exception as e:
-        logging.error(
-            f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
         return None
 
 
@@ -196,7 +183,6 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
     files_to_download = []
 
     try:
-
         items = (
             await graph_client.drives.by_drive_id(drive_id)
             .items.by_drive_item_id(path_relative_to_root)
@@ -204,7 +190,6 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
         )
 
         if items and items.value:
-
             for item in items.value:
                 file_metadata = {
                     "id": item.id,
@@ -217,8 +202,7 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
         return files_to_download
 
     except Exception as e:
-        logging.error(
-            f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
         return None
 
 
@@ -233,16 +217,13 @@ def generate_graph_client() -> GraphServiceClient | None:
     """
 
     try:
-
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret(
-            "sharepoint-client-secret").value
+        client_secret = secret_client.get_secret("sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -250,8 +231,7 @@ def generate_graph_client() -> GraphServiceClient | None:
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(
-            credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
@@ -273,14 +253,12 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
     """
 
     try:
-
         graph_client = generate_graph_client()
 
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(
-            vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(vault_url=vault_url, credential=credential)
 
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
@@ -311,8 +289,7 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
 
                 file_paths.append(file_metadata)
             except Exception as e:
-                logging.error(
-                    f"An error occurred downloading file: {name}. {e}")
+                logging.error(f"An error occurred downloading file: {name}. {e}")
 
         return file_paths
     except Exception as e:
@@ -330,13 +307,9 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
     """
 
     try:
-
         async with asyncio.TaskGroup() as tg:
-
             for sharepoint_file in sharepoint_files:
-
-                tg.create_task(asyncio.to_thread(
-                    process_single_month, sharepoint_file))
+                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
     except Exception as e:
         logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
         return None
@@ -359,8 +332,7 @@ def process_single_month(sharepoint_file: dict) -> None:
 
     users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
     cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
-    transactions = pd.read_excel(
-        open(file_path, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
     process_users(users, file_name)
     process_cards(cards, file_name)
@@ -381,9 +353,7 @@ def process_users(users: pd.DataFrame, file_name: str) -> None:
     processed_rows = []
 
     for index, row in users.iterrows():
-
         try:
-
             row_data = {
                 "id": row["id"],
                 "current_age": row["current_age"],
@@ -406,7 +376,7 @@ def process_users(users: pd.DataFrame, file_name: str) -> None:
 
         except Exception as e:
             logging.error(
-                f"An error occurred processing {row["id"]} record from users sheet: {e}"
+                f"An error occurred processing {row['id']} record from users sheet: {e}"
             )
             continue
 
@@ -427,9 +397,7 @@ def process_cards(cards: pd.DataFrame, file_name: str) -> None:
     processed_rows = []
 
     for index, row in cards.iterrows():
-
         try:
-
             row_data = {
                 "id": row["id"],
                 "client_id": row["client_id"],
@@ -451,7 +419,7 @@ def process_cards(cards: pd.DataFrame, file_name: str) -> None:
 
         except Exception as e:
             logging.error(
-                f"An error occurred processing {row["id"]} card record from cards sheet: {e}"
+                f"An error occurred processing {row['id']} card record from cards sheet: {e}"
             )
             continue
 
@@ -472,9 +440,7 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
     model = Transactions
 
     for index, row in transactions.iterrows():
-
         try:
-
             row_data = {
                 "id": row["id"],
                 "date": row["date"],
@@ -484,12 +450,10 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": (
-                    None if pd.isna(row["merchant_city"]
-                                    ) else row["merchant_city"]
+                    None if pd.isna(row["merchant_city"]) else row["merchant_city"]
                 ),
                 "merchant_state": (
-                    None if pd.isna(row["merchant_state"]
-                                    ) else row["merchant_state"]
+                    None if pd.isna(row["merchant_state"]) else row["merchant_state"]
                 ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
@@ -500,8 +464,7 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             processed_rows.append(row_data)
 
         except Exception as e:
-            logging.error(
-                f"An error occurred processing record {row_data['id']}: {e}")
+            logging.error(f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
     bulk_insert(processed_rows, model)
@@ -524,7 +487,6 @@ def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
 
         try:
             with Session(engine) as session:
-
                 session.exec(insert(model), params=batch)
                 session.commit()
 
