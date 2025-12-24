@@ -29,7 +29,7 @@ if url:
     
     # Replace USERNAME (Azure Only)
     if "USERNAME" in url:
-        username = "POSTGRE_SQL_ADMINS"
+        username = "POSTGRESQL_ADMINS"
         encoded_username = urllib.parse.quote(username, safe="")
         url = url.replace("USERNAME", encoded_username)
     

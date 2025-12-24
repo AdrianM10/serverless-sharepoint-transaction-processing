@@ -53,7 +53,7 @@ module "azure_kv" {
 
 }
 
-module "azure_postgre_sql" {
+module "azure_postgresql" {
   source                  = "./modules/azure_postgresql"
   project_name            = var.project_name
   app_owner               = var.app_owner
@@ -87,6 +87,6 @@ module "azure_functions" {
   db_host                 = var.db_host
   functions_subnet_id     = module.azure_vnet.functions_subnet_id
 
-  depends_on = [module.azure_postgre_sql, module.azure_vnet, module.azure_kv]
+  depends_on = [module.azure_postgresql, module.azure_vnet, module.azure_kv]
 
 }

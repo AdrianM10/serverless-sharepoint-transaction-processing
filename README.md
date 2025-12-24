@@ -84,7 +84,7 @@ This project is designed as a learning resource for using Python based Azure Fun
 ## Usage
 
 1. Fork this repository to your own account.
-2. Create a security group in Entra named **POSTGRE_SQL_ADMINS**.
+2. Create a security group in Entra named **POSTGRESQL_ADMINS**.
 3. [Configure OpenID Connect in Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure).
 4. Create the below repository secrets:
 
@@ -95,7 +95,7 @@ This project is designed as a learning resource for using Python based Azure Fun
     - DB_HOST
     - IP_ADDRESS
     - KV_NAME
-    - POSTGRE_SQL_ADMINS_OBJECT_ID
+    - POSTGRESQL_ADMINS_OBJECT_ID
     - PSQL_SERVER_NAME
     - STORAGE_ACCOUNT_NAME
     - VAULT_URL_DEV
