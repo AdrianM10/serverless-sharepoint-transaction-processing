@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 import re
@@ -13,7 +12,7 @@ from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
 
-from models import SQLModel, Cards, Transactions, Users, engine, insert, select
+from models import SQLModel, Cards, Transactions, Users, engine, insert
 
 ingest_sp_bp = func.Blueprint()
 
@@ -79,7 +78,7 @@ def retrieve_yearly_directories() -> list[str] | None:
 
     try:
 
-        path_relative_to_root = f"root:/General/Transactions/Finance:"
+        path_relative_to_root = "root:/General/Transactions/Finance:"
         pattern = r"^YE\d{4}$"
 
         yearly_directories = asyncio.run(

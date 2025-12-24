@@ -80,7 +80,7 @@ token = credential.get_token(
     "https://ossrdbms-aad.database.windows.net/.default")
 access_token = token.token
 
-username = "POSTGRE_SQL_ADMINS"
+username = "POSTGRESQL_ADMINS"
 encoded_username = urllib.parse.quote(username, safe="")
 host = os.environ.get("DB_HOST")
 db_name = "transactions"
