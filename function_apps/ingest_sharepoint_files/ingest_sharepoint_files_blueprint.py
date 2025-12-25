@@ -22,6 +22,7 @@ from models import (
     engine,
     insert,
     select,
+    or_,
 )
 
 ingest_sp_bp = func.Blueprint()
@@ -48,7 +49,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
             if monthly_directories:
                 # Retrieve files from monthly subdirectory
-                files_to_download = []
+                files_to_process = []
 
                 for month_directory in monthly_directories:
                     path_relative_to_root = (
@@ -58,18 +59,22 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
                     retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
 
-                    files_to_download.extend(retrieved_files)
+                    files_to_process.extend(retrieved_files)
 
-                logging.info(files_to_download)
+                logging.info(files_to_process)
 
                 # Call helper function to add file metadata to DataImport table
-                import_file_metadata(files_to_download)
+                import_file_metadata(files_to_process)
 
-                # sharepoint_files = asyncio.run(
-                #     download_sharepoint_files(files_to_download)
-                # )
+                # Call helper function to read data_import table to identify file
+                # sources that need to be ingested based on status columns
+                files_to_download = process_data_import_table()
 
-                # asyncio.run(ingest_sharepoint_files(sharepoint_files))
+                sharepoint_files = asyncio.run(
+                    download_sharepoint_files(files_to_download)
+                )
+
+                asyncio.run(ingest_sharepoint_files(sharepoint_files))
 
     logging.info("Python timer trigger function executed.")
 
@@ -193,7 +198,7 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
     secret_client = SecretClient(vault_url=vault_url, credential=credential)
     drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
-    files_to_download = []
+    files_to_process = []
 
     try:
         items = (
@@ -214,13 +219,96 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
                     "last_modified_date": item.last_modified_date_time,
                 }
 
+                files_to_process.append(file_metadata)
+
+        return files_to_process
+
+    except Exception as e:
+        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        return None
+
+
+def import_file_metadata(files_to_process: list[dict]) -> None:
+    """
+    Import file metadata into 'data_import' table
+
+    Args:
+        files_to_process (list[dict]): List of dictionaries containing file metadata
+                                        (file_name, size, created_at, last_modified_date)
+    """
+
+    for file_to_download in files_to_process:
+        try:
+            with Session(engine) as session:
+                
+                statement = select(DataImport).where(
+                    DataImport.id == file_to_download["id"]
+                )
+                result = session.exec(statement).first()
+
+                if result is None:
+                    result = DataImport(**file_to_download)
+                    result.users_status = "pending"
+                    result.cards_status = "pending"
+                    result.transactions_status = "pending"
+
+                else:
+                    if (
+                        result.size != file_to_download["size"]
+                        or result.last_modified_date
+                        != file_to_download["last_modified_date"]
+                    ):
+                        result.size = file_to_download["size"]
+                        result.last_modified_date = file_to_download[
+                            "last_modified_date"
+                        ]
+                        result.users_status = "pending"
+                        result.cards_status = "pending"
+                        result.transactions_status = "pending"
+
+                session.add(result)
+                session.commit()
+
+        except Exception as e:
+            logging.error(f"An error occurred importing file metadata: {e}")
+            continue
+
+
+def process_data_import_table() -> list[dict]:
+    """
+    Read data_import table to identify file sources that need to be ingested based on status
+    columns
+
+    Returns:
+            A list of dictionaries containing file metadata required to be processed
+            for ingestion.
+    """
+
+    try:
+        files_to_download = []
+
+        with Session(engine) as session:
+            statement = select(DataImport).where(
+                or_(
+                    DataImport.users_status != "complete",
+                    DataImport.cards_status != "complete",
+                    DataImport.transactions_status != "complete",
+                )
+            )
+            results = session.exec(statement)
+
+            for result in results:
+                file_metadata = {"id": result.id, "name": result.file_name}
+
+                logging.info(file_metadata)
                 files_to_download.append(file_metadata)
 
         return files_to_download
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
-        return None
+        logging.error(
+            f"An error occurred processing records from data_import table: {e}"
+        )
 
 
 def generate_graph_client() -> GraphServiceClient | None:
@@ -397,7 +485,8 @@ def process_users(users: pd.DataFrame, file_name: str) -> None:
             )
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
+ 
 
 
 def process_cards(cards: pd.DataFrame, file_name: str) -> None:
@@ -440,7 +529,7 @@ def process_cards(cards: pd.DataFrame, file_name: str) -> None:
             )
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
 
 
 def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
@@ -484,56 +573,12 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
 
 
-def import_file_metadata(files_to_download: list[dict]) -> None:
-    """
-    Import file metadata into 'data_import' table
-
-    Args:
-        files_to_download (list[dict]): List of dictionaries containing file metadata
-                                        (file_name, size, created_at, last_modified_date)
-    """
-
-    for file_to_download in files_to_download:
-        try:
-            with Session(engine) as session:
-                # Check if record exists in table
-                statement = select(DataImport).where(
-                    DataImport.id == file_to_download["id"]
-                )
-                result = session.exec(statement).first()
-
-                if result is None:
-                    result = DataImport(**file_to_download)
-                    result.users_status = "pending"
-                    result.cards_status = "pending"
-                    result.transactions_status = "pending"
-
-                else:
-                    if (
-                        result.size != file_to_download["size"]
-                        or result.last_modified_date
-                        != file_to_download["last_modified_date"]
-                    ):
-                        result.size = file_to_download["size"]
-                        result.last_modified_date = file_to_download[
-                            "last_modified_date"
-                        ]
-                        result.users_status = "pending"
-                        result.cards_status = "pending"
-                        result.transactions_status = "pending"
-
-                session.add(result)
-                session.commit()
-
-        except Exception as e:
-            logging.error(f"An error occurred importing file metadata: {e}")
-            continue
-
-
-def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
+def bulk_insert(
+    processed_rows: list[dict], model: type[SQLModel], file_name: str
+) -> None:
     """
     Bulk insert records into database in batches of 1000
 
@@ -556,3 +601,8 @@ def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
         except Exception as e:
             logging.error(f"An error occurred inserting batch: {e} ")
             continue
+
+ 
+
+
+
