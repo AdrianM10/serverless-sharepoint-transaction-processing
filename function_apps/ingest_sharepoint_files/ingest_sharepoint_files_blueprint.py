@@ -11,8 +11,18 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
+from datetime import datetime
 
-from models import SQLModel, Cards, Transactions, Users, engine, insert
+from models import (
+    SQLModel,
+    Cards,
+    Transactions,
+    Users,
+    DataImport,
+    engine,
+    insert,
+    select,
+)
 
 ingest_sp_bp = func.Blueprint()
 
@@ -21,7 +31,7 @@ ingest_sp_bp = func.Blueprint()
 @ingest_sp_bp.schedule(
     schedule="0 0 */2 * * *",
     arg_name="myTimer",
-    run_on_startup=False,
+    run_on_startup=True,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest) -> None:
@@ -52,11 +62,14 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
                 logging.info(files_to_download)
 
-                sharepoint_files = asyncio.run(
-                    download_sharepoint_files(files_to_download)
-                )
+                # Call helper function to add file metadata to DataImport table
+                import_file_metadata(files_to_download)
 
-                asyncio.run(ingest_sharepoint_files(sharepoint_files))
+                # sharepoint_files = asyncio.run(
+                #     download_sharepoint_files(files_to_download)
+                # )
+
+                # asyncio.run(ingest_sharepoint_files(sharepoint_files))
 
     logging.info("Python timer trigger function executed.")
 
@@ -193,8 +206,12 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
             for item in items.value:
                 file_metadata = {
                     "id": item.id,
-                    "name": item.name,
-                    "web_url": item.web_url,
+                    # "name": item.name,
+                    # "web_url": item.web_url,
+                    "size": item.size,
+                    "file_name": item.name,
+                    "created_at": item.created_date_time,
+                    "last_modified_date": item.last_modified_date_time,
                 }
 
                 files_to_download.append(file_metadata)
@@ -468,6 +485,52 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             continue
 
     bulk_insert(processed_rows, model)
+
+
+def import_file_metadata(files_to_download: list[dict]) -> None:
+    """
+    Import file metadata into 'data_import' table
+
+    Args:
+        files_to_download (list[dict]): List of dictionaries containing file metadata
+                                        (file_name, size, created_at, last_modified_date)
+    """
+
+    for file_to_download in files_to_download:
+        try:
+            with Session(engine) as session:
+                # Check if record exists in table
+                statement = select(DataImport).where(
+                    DataImport.id == file_to_download["id"]
+                )
+                result = session.exec(statement).first()
+
+                if result is None:
+                    result = DataImport(**file_to_download)
+                    result.users_status = "pending"
+                    result.cards_status = "pending"
+                    result.transactions_status = "pending"
+
+                else:
+                    if (
+                        result.size != file_to_download["size"]
+                        or result.last_modified_date
+                        != file_to_download["last_modified_date"]
+                    ):
+                        result.size = file_to_download["size"]
+                        result.last_modified_date = file_to_download[
+                            "last_modified_date"
+                        ]
+                        result.users_status = "pending"
+                        result.cards_status = "pending"
+                        result.transactions_status = "pending"
+
+                session.add(result)
+                session.commit()
+
+        except Exception as e:
+            logging.error(f"An error occurred importing file metadata: {e}")
+            continue
 
 
 def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:

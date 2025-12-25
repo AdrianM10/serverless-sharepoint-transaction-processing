@@ -74,8 +74,8 @@ class DataImport(SQLModel, table=True):
     size: int = Field(default=None, sa_column=Column(BigInteger()))
     created_at: Optional[datetime] | None = None
     last_modified_date: Optional[datetime] | None = None
-    started_at: Optional[date] | None = None
-    finished_at: Optional[date] | None = None
+    started_at: Optional[datetime] | None = None
+    finished_at: Optional[datetime] | None = None
     users_status: Optional[str] | None = None
     cards_status: Optional[str] | None = None
     transactions_status: Optional[str] | None = None
