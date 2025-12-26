@@ -44,7 +44,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
     if yearly_directories:
         for yearly_directory in yearly_directories:
-            monthly_directories = retrieve_monthly_directories(yearly_directory)
+            monthly_directories = retrieve_monthly_directories(
+                yearly_directory)
 
             logging.info(f"monthly_directories: {monthly_directories}")
 
@@ -58,7 +59,8 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     )
                     logging.info(path_relative_to_root)
 
-                    retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
+                    retrieved_files = asyncio.run(
+                        retrieve_files(path_relative_to_root))
 
                     files_to_process.extend(retrieved_files)
 
@@ -155,7 +157,8 @@ async def retrieve_sharepoint_directories(
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -176,7 +179,8 @@ async def retrieve_sharepoint_directories(
         return directories
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(
+            f"An error occurred retrieving sharepoint directories: {e}")
         return None
 
 
@@ -224,7 +228,8 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
         return files_to_process
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(
+            f"An error occurred retrieving file from SharePoint: {e}")
         return None
 
 
@@ -324,10 +329,12 @@ def generate_graph_client() -> GraphServiceClient | None:
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -335,7 +342,8 @@ def generate_graph_client() -> GraphServiceClient | None:
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
@@ -362,7 +370,8 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
@@ -393,7 +402,8 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
 
                 file_paths.append(file_metadata)
             except Exception as e:
-                logging.error(f"An error occurred downloading file: {name}. {e}")
+                logging.error(
+                    f"An error occurred downloading file: {name}. {e}")
 
         return file_paths
     except Exception as e:
@@ -415,7 +425,8 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
         async with asyncio.TaskGroup() as tg:
             for sharepoint_file in sharepoint_files:
                 logging.info(f"Creating task for {sharepoint_file['name']}")
-                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
+                tg.create_task(asyncio.to_thread(
+                    process_single_month, sharepoint_file))
                 # tg.create_task(process_single_month(sharepoint_file))
     except Exception as e:
         logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
@@ -439,7 +450,8 @@ def process_single_month(sharepoint_file: dict) -> None:
 
     # users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
     # cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
-    transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(
+        open(file_path, "rb"), sheet_name="transactions")
 
     # process_users(users, file_name)
     # process_cards(cards, file_name)
@@ -557,10 +569,12 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": (
-                    None if pd.isna(row["merchant_city"]) else row["merchant_city"]
+                    None if pd.isna(row["merchant_city"]
+                                    ) else row["merchant_city"]
                 ),
                 "merchant_state": (
-                    None if pd.isna(row["merchant_state"]) else row["merchant_state"]
+                    None if pd.isna(row["merchant_state"]
+                                    ) else row["merchant_state"]
                 ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
@@ -571,7 +585,8 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             processed_rows.append(row_data)
 
         except Exception as e:
-            logging.error(f"An error occurred processing record {row_data['id']}: {e}")
+            logging.error(
+                f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
     bulk_insert(processed_rows, model, file_name)
@@ -591,7 +606,8 @@ def bulk_insert(
     status = 0
 
     batches = len(processed_rows) // 1000
-    logging.info(f"Total number of batches to insert for {file_name}: {batches}")
+    logging.info(
+        f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
         # logging.info(f"Inserting batch {batch_index} of {batches} from {file_name}...")
@@ -607,3 +623,55 @@ def bulk_insert(
             continue
 
     logging.info(f"Status from processing {file_name}: {status}")
+
+    update_status(file_name, model, status)
+
+
+def update_status(file_name, model, status):
+
+    logging.info(f"Simulating updating status for {file_name}")
+
+    logging.info(f"Model: {model.__name__}")
+    logging.info(f"Type: {type(model.__name__)}")
+    logging.info(f"Status: {status}")
+
+    model_name = model.__name__
+
+    if model_name == "Transactions":
+        logging.info("Model detected is Transactions")
+        column = "transactions_status"
+
+    elif model_name == "Cards":
+        logging.info("Model detected is Cards")
+        column = "cards_status"
+
+    elif model_name == "Users":
+        logging.info("Model detected is Users")
+        column = "users_status"
+
+    try:
+
+        with Session(engine) as session:
+            statement = select(DataImport).where(
+                DataImport.file_name == file_name)
+            result = session.exec(statement).first()
+
+            if status == 0:
+                logging.info(
+                    f"Batches from {file_name} were successfully imported.")
+                logging.info(
+                    f"Updating status for {model_name} to 'complete'.")
+                
+                setattr(result, column, "complete")
+            else:
+                logging.info(
+                    f"Batches from {file_name} were not successfully imported!")
+                logging.info(
+                    f"Updating status for {model_name} to 'failed'.")
+                
+                setattr(result, column, "failed")
+
+            session.add(result)
+            session.commit()
+    except Exception as e:
+        logging.error(f"An error occurred updating status: {e}")
