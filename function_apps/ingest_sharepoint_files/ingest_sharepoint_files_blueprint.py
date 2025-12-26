@@ -11,7 +11,6 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
-from datetime import datetime
 
 from models import (
     SQLModel,
@@ -26,6 +25,8 @@ from models import (
 )
 
 ingest_sp_bp = func.Blueprint()
+
+logging.basicConfig(level=logging.INFO, force=True)
 
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
@@ -73,8 +74,9 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                 sharepoint_files = asyncio.run(
                     download_sharepoint_files(files_to_download)
                 )
-
+                logging.info("Starting import job for sharepoint files...")
                 asyncio.run(ingest_sharepoint_files(sharepoint_files))
+                logging.info("Finished import job")
 
     logging.info("Python timer trigger function executed.")
 
@@ -180,7 +182,7 @@ async def retrieve_sharepoint_directories(
 
 async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
     """
-    Retrieve file(s) metadata containing file 'id', 'name', 'web_url'
+    Retrieve file(s) metadata containing file 'id', 'name', 'created_date_time', 'last_modified_date_time'
 
     Args:
         path_relative_to_root (str): SharePoint path relative to the drive root
@@ -211,8 +213,6 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
             for item in items.value:
                 file_metadata = {
                     "id": item.id,
-                    # "name": item.name,
-                    # "web_url": item.web_url,
                     "size": item.size,
                     "file_name": item.name,
                     "created_at": item.created_date_time,
@@ -240,7 +240,6 @@ def import_file_metadata(files_to_process: list[dict]) -> None:
     for file_to_download in files_to_process:
         try:
             with Session(engine) as session:
-                
                 statement = select(DataImport).where(
                     DataImport.id == file_to_download["id"]
                 )
@@ -412,9 +411,12 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
     """
 
     try:
+        logging.info(f"Starting import for {len(sharepoint_files)} files.")
         async with asyncio.TaskGroup() as tg:
             for sharepoint_file in sharepoint_files:
+                logging.info(f"Creating task for {sharepoint_file['name']}")
                 tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
+                # tg.create_task(process_single_month(sharepoint_file))
     except Exception as e:
         logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
         return None
@@ -435,12 +437,12 @@ def process_single_month(sharepoint_file: dict) -> None:
     file_path = sharepoint_file["path"]
     file_name = sharepoint_file["name"]
 
-    users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
-    cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+    # users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+    # cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
     transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
 
-    process_users(users, file_name)
-    process_cards(cards, file_name)
+    # process_users(users, file_name)
+    # process_cards(cards, file_name)
     process_transactions(transactions, file_name)
 
 
@@ -486,7 +488,6 @@ def process_users(users: pd.DataFrame, file_name: str) -> None:
             continue
 
     bulk_insert(processed_rows, model, file_name)
- 
 
 
 def process_cards(cards: pd.DataFrame, file_name: str) -> None:
@@ -587,22 +588,22 @@ def bulk_insert(
         model (type[SQLModel]): SQLModel table class representing the target database table
     """
 
+    status = 0
+
     batches = len(processed_rows) // 1000
-    logging.info(f"Total number of batches to insert for {model}: {batches}")
+    logging.info(f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
-        logging.info(f"Inserting batch {batch_index}...")
+        # logging.info(f"Inserting batch {batch_index} of {batches} from {file_name}...")
 
         try:
             with Session(engine) as session:
                 session.exec(insert(model), params=batch)
                 session.commit()
 
-        except Exception as e:
-            logging.error(f"An error occurred inserting batch: {e} ")
+        except Exception:
+            # logging.error(f"An error occurred inserting batch: {e} ")
+            status = 1
             continue
 
- 
-
-
-
+    logging.info(f"Status from processing {file_name}: {status}")
