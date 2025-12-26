@@ -11,6 +11,7 @@ from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
+from sqlalchemy.exc import IntegrityError
 
 from models import (
     SQLModel,
@@ -21,7 +22,7 @@ from models import (
     engine,
     insert,
     select,
-    or_,
+    or_
 )
 
 ingest_sp_bp = func.Blueprint()
@@ -256,19 +257,18 @@ def import_file_metadata(files_to_process: list[dict]) -> None:
                     result.cards_status = "pending"
                     result.transactions_status = "pending"
 
-                else:
-                    if (
-                        result.size != file_to_download["size"]
-                        or result.last_modified_date
-                        != file_to_download["last_modified_date"]
-                    ):
-                        result.size = file_to_download["size"]
-                        result.last_modified_date = file_to_download[
-                            "last_modified_date"
-                        ]
-                        result.users_status = "pending"
-                        result.cards_status = "pending"
-                        result.transactions_status = "pending"
+                # if (
+                #     result.size != file_to_download["size"]
+                #     or result.last_modified_date
+                #     != file_to_download["last_modified_date"]
+                # ):
+                #     result.size = file_to_download["size"]
+                #     result.last_modified_date = file_to_download[
+                #         "last_modified_date"
+                #     ]
+                #     result.users_status = "pending"
+                #     result.cards_status = "pending"
+                #     result.transactions_status = "pending"
 
                 session.add(result)
                 session.commit()
@@ -302,7 +302,11 @@ def process_data_import_table() -> list[dict]:
             results = session.exec(statement)
 
             for result in results:
-                file_metadata = {"id": result.id, "name": result.file_name}
+                file_metadata = {"id": result.id,
+                                 "name": result.file_name,
+                                 "users_status": result.users_status,
+                                 "cards_status": result.cards_status,
+                                 "transactions_status": result.transactions_status}
 
                 logging.info(file_metadata)
                 files_to_download.append(file_metadata)
@@ -379,6 +383,11 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
 
         for file_to_download in files_to_download:
             try:
+
+                users_status = file_to_download["users_status"]
+                cards_status = file_to_download["cards_status"]
+                transactions_status = file_to_download["transactions_status"]
+
                 logging.info(f"drive_id: {drive_id}")
                 drive_item_id = file_to_download["id"]
                 logging.info(f"drive_item_id: {drive_item_id}")
@@ -398,7 +407,13 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
                 with open(file_path, "wb") as file:
                     file.write(download)
 
-                file_metadata = {"name": name, "path": file_path}
+                file_metadata = {
+                    "name": name,
+                    "path": file_path,
+                    "users_status": users_status,
+                    "cards_status": cards_status,
+                    "transactions_status": transactions_status
+                }
 
                 file_paths.append(file_metadata)
             except Exception as e:
@@ -428,9 +443,13 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
                 tg.create_task(asyncio.to_thread(
                     process_single_month, sharepoint_file))
                 # tg.create_task(process_single_month(sharepoint_file))
-    except Exception as e:
-        logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
-        return None
+    # except Exception as e:
+    #     logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
+    #     return None
+    except ExceptionGroup as eg:
+        # logging.error(f"An error occurred ingesting sharepoint file(s): {eg}")
+        for exc in eg.exceptions:
+            logging.error(f"Task failed with error: {exc}", exc_info=exc)
 
 
 def process_single_month(sharepoint_file: dict) -> None:
@@ -448,14 +467,28 @@ def process_single_month(sharepoint_file: dict) -> None:
     file_path = sharepoint_file["path"]
     file_name = sharepoint_file["name"]
 
-    # users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
-    # cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
-    transactions = pd.read_excel(
-        open(file_path, "rb"), sheet_name="transactions")
+    # Check status columns if they are not complete, only retrieve sheets for status columns that are not complete
 
-    # process_users(users, file_name)
-    # process_cards(cards, file_name)
-    process_transactions(transactions, file_name)
+    users_status = sharepoint_file["users_status"]
+    cards_status = sharepoint_file["cards_status"]
+    transactions_status = sharepoint_file["transactions_status"]
+
+    if users_status != "complete":
+        # logging.info(f"Users Status: {users_status}")
+        users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+        process_users(users, file_name)
+
+    if cards_status != "complete":
+        # logging.info(f"Cards Status: {cards_status}")
+        cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+        process_cards(cards, file_name)
+
+    if transactions_status != "complete":
+        # logging.info(f"Transactions Status: {transactions_status}")
+        transactions = pd.read_excel(
+            open(file_path, "rb"), sheet_name="transactions")
+
+        process_transactions(transactions, file_name)
 
 
 def process_users(users: pd.DataFrame, file_name: str) -> None:
@@ -610,15 +643,21 @@ def bulk_insert(
         f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
-        # logging.info(f"Inserting batch {batch_index} of {batches} from {file_name}...")
+        logging.info(
+            f"Inserting batch ({model.__name__}) {batch_index} of {batches} from {file_name}...")
 
         try:
             with Session(engine) as session:
                 session.exec(insert(model), params=batch)
                 session.commit()
 
-        except Exception:
-            # logging.error(f"An error occurred inserting batch: {e} ")
+        except IntegrityError as e:
+
+            logging.warning(f"An error occurred inserting batch: {e}")
+
+
+        except Exception as e:
+            logging.error(f"An error occurred inserting batch: {e} ")
             status = 1
             continue
 
@@ -629,7 +668,7 @@ def bulk_insert(
 
 def update_status(file_name, model, status):
 
-    logging.info(f"Simulating updating status for {file_name}")
+    logging.info(f"Updating status for {file_name}")
 
     logging.info(f"Model: {model.__name__}")
     logging.info(f"Type: {type(model.__name__)}")
@@ -641,11 +680,11 @@ def update_status(file_name, model, status):
         logging.info("Model detected is Transactions")
         column = "transactions_status"
 
-    elif model_name == "Cards":
+    if model_name == "Cards":
         logging.info("Model detected is Cards")
         column = "cards_status"
 
-    elif model_name == "Users":
+    if model_name == "Users":
         logging.info("Model detected is Users")
         column = "users_status"
 
@@ -658,18 +697,22 @@ def update_status(file_name, model, status):
 
             if status == 0:
                 logging.info(
-                    f"Batches from {file_name} were successfully imported.")
+                    f"{model_name} batches from {file_name} were successfully imported.")
                 logging.info(
                     f"Updating status for {model_name} to 'complete'.")
-                
+
                 setattr(result, column, "complete")
             else:
                 logging.info(
-                    f"Batches from {file_name} were not successfully imported!")
+                    f"{model_name} batches {file_name} were not successfully imported!")
                 logging.info(
                     f"Updating status for {model_name} to 'failed'.")
-                
-                setattr(result, column, "failed")
+
+                current_status = getattr(result, column)
+
+                if current_status != "complete":
+
+                    setattr(result, column, "failed")
 
             session.add(result)
             session.commit()
