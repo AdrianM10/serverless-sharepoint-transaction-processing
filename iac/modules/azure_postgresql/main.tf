@@ -19,6 +19,10 @@ resource "azurerm_postgresql_flexible_server" "psql_server" {
     active_directory_auth_enabled = true
   }
 
+    lifecycle {
+    prevent_destroy = true
+  }
+
 }
 
 resource "azurerm_postgresql_flexible_server_database" "psql_db" {
