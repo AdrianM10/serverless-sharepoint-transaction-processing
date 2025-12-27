@@ -12,6 +12,7 @@ from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError
+from psycopg2.errors import UniqueViolation
 
 from models import (
     SQLModel,
@@ -652,9 +653,9 @@ def bulk_insert(
                 session.commit()
 
         except IntegrityError as e:
-
-            logging.warning(f"An error occurred inserting batch: {e}")
-
+            if isinstance(e.orig, UniqueViolation):
+                logging.warning(
+                    f"An error occurred inserting {batch_index} of {batches} from {file_name}: {e}")
 
         except Exception as e:
             logging.error(f"An error occurred inserting batch: {e} ")
@@ -666,7 +667,16 @@ def bulk_insert(
     update_status(file_name, model, status)
 
 
-def update_status(file_name, model, status):
+def update_status(file_name: str, model: type[SQLModel], status: int):
+    """
+    Update import status for sheet data imported, status can be 'failed'
+    or 'complete'
+
+    Args:
+        file_name (str): Name of the source file for tracking data origin
+        model (type[SQLModel]): SQLModel table class representing the target database table
+        status (int): Status code, 0 represents complete, 1 represents failed
+    """
 
     logging.info(f"Updating status for {file_name}")
 
@@ -699,14 +709,14 @@ def update_status(file_name, model, status):
                 logging.info(
                     f"{model_name} batches from {file_name} were successfully imported.")
                 logging.info(
-                    f"Updating status for {model_name} to 'complete'.")
+                    f"Updating status for {model_name} from {file_name} to 'complete'.")
 
                 setattr(result, column, "complete")
             else:
                 logging.info(
                     f"{model_name} batches {file_name} were not successfully imported!")
                 logging.info(
-                    f"Updating status for {model_name} to 'failed'.")
+                    f"Updating status for {model_name} from {file_name} to 'failed'.")
 
                 current_status = getattr(result, column)
 
@@ -717,4 +727,5 @@ def update_status(file_name, model, status):
             session.add(result)
             session.commit()
     except Exception as e:
-        logging.error(f"An error occurred updating status: {e}")
+        logging.error(
+            f"An error occurred updating status for {file_name} import: {e}")
