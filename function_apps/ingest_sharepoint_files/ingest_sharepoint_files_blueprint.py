@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import re
@@ -10,11 +11,25 @@ import pandas as pd
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
+from psycopg2.errors import UniqueViolation
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
-from models import SQLModel, Cards, Transactions, Users, engine, insert
+from models import (
+    Cards,
+    DataImport,
+    SQLModel,
+    Transactions,
+    Users,
+    engine,
+    insert,
+    or_,
+    select,
+)
 
 ingest_sp_bp = func.Blueprint()
+
+logging.basicConfig(level=logging.INFO, force=True)
 
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
@@ -38,7 +53,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
             if monthly_directories:
                 # Retrieve files from monthly subdirectory
-                files_to_download = []
+                files_to_process = []
 
                 for month_directory in monthly_directories:
                     path_relative_to_root = (
@@ -48,15 +63,23 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
 
                     retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
 
-                    files_to_download.extend(retrieved_files)
+                    files_to_process.extend(retrieved_files)
 
-                logging.info(files_to_download)
+                logging.info(files_to_process)
+
+                # Call helper function to add file metadata to DataImport table
+                import_file_metadata(files_to_process)
+
+                # Call helper function to read data_import table to identify file
+                # sources that need to be ingested based on status columns
+                files_to_download = process_data_import_table()
 
                 sharepoint_files = asyncio.run(
                     download_sharepoint_files(files_to_download)
                 )
-
+                logging.info("Starting import job for sharepoint files...")
                 asyncio.run(ingest_sharepoint_files(sharepoint_files))
+                logging.info("Finished import job")
 
     logging.info("Python timer trigger function executed.")
 
@@ -162,7 +185,7 @@ async def retrieve_sharepoint_directories(
 
 async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
     """
-    Retrieve file(s) metadata containing file 'id', 'name', 'web_url'
+    Retrieve file(s) metadata containing file 'id', 'name', 'created_date_time', 'last_modified_date_time'
 
     Args:
         path_relative_to_root (str): SharePoint path relative to the drive root
@@ -180,7 +203,7 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
     secret_client = SecretClient(vault_url=vault_url, credential=credential)
     drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
-    files_to_download = []
+    files_to_process = []
 
     try:
         items = (
@@ -193,17 +216,94 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
             for item in items.value:
                 file_metadata = {
                     "id": item.id,
-                    "name": item.name,
-                    "web_url": item.web_url,
+                    "size": item.size,
+                    "file_name": item.name,
+                    "created_at": item.created_date_time,
+                    "last_modified_date": item.last_modified_date_time,
                 }
 
+                files_to_process.append(file_metadata)
+
+        return files_to_process
+
+    except Exception as e:
+        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        return None
+
+
+def import_file_metadata(files_to_process: list[dict]) -> None:
+    """
+    Import file metadata into 'data_import' table
+
+    Args:
+        files_to_process (list[dict]): List of dictionaries containing file metadata
+                                        (file_name, size, created_at, last_modified_date)
+    """
+
+    for file_to_download in files_to_process:
+        try:
+            with Session(engine) as session:
+                statement = select(DataImport).where(
+                    DataImport.id == file_to_download["id"]
+                )
+                result = session.exec(statement).first()
+
+                if result is None:
+                    result = DataImport(**file_to_download)
+                    result.users_status = "pending"
+                    result.cards_status = "pending"
+                    result.transactions_status = "pending"
+                    result.started_at = datetime.datetime.now()
+
+                session.add(result)
+                session.commit()
+
+        except Exception as e:
+            logging.error(f"An error occurred importing file metadata: {e}")
+            continue
+
+
+def process_data_import_table() -> list[dict]:
+    """
+    Read data_import table to identify file sources that need to be ingested based on status
+    columns
+
+    Returns:
+            A list of dictionaries containing file metadata required to be processed
+            for ingestion.
+    """
+
+    try:
+        files_to_download = []
+
+        with Session(engine) as session:
+            statement = select(DataImport).where(
+                or_(
+                    DataImport.users_status != "complete",
+                    DataImport.cards_status != "complete",
+                    DataImport.transactions_status != "complete",
+                )
+            )
+            results = session.exec(statement)
+
+            for result in results:
+                file_metadata = {
+                    "id": result.id,
+                    "name": result.file_name,
+                    "users_status": result.users_status,
+                    "cards_status": result.cards_status,
+                    "transactions_status": result.transactions_status,
+                }
+
+                logging.info(file_metadata)
                 files_to_download.append(file_metadata)
 
         return files_to_download
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
-        return None
+        logging.error(
+            f"An error occurred processing records from data_import table: {e}"
+        )
 
 
 def generate_graph_client() -> GraphServiceClient | None:
@@ -266,6 +366,10 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
 
         for file_to_download in files_to_download:
             try:
+                users_status = file_to_download["users_status"]
+                cards_status = file_to_download["cards_status"]
+                transactions_status = file_to_download["transactions_status"]
+
                 logging.info(f"drive_id: {drive_id}")
                 drive_item_id = file_to_download["id"]
                 logging.info(f"drive_item_id: {drive_item_id}")
@@ -285,7 +389,13 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
                 with open(file_path, "wb") as file:
                     file.write(download)
 
-                file_metadata = {"name": name, "path": file_path}
+                file_metadata = {
+                    "name": name,
+                    "path": file_path,
+                    "users_status": users_status,
+                    "cards_status": cards_status,
+                    "transactions_status": transactions_status,
+                }
 
                 file_paths.append(file_metadata)
             except Exception as e:
@@ -307,17 +417,20 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
     """
 
     try:
+        logging.info(f"Starting import for {len(sharepoint_files)} files.")
         async with asyncio.TaskGroup() as tg:
             for sharepoint_file in sharepoint_files:
+                logging.info(f"Creating task for {sharepoint_file['name']}")
                 tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
-    except Exception as e:
-        logging.error(f"An error occurred ingesting sharepoint file(s): {e}")
-        return None
+    except ExceptionGroup as eg:
+        for exc in eg.exceptions:
+            logging.error(f"Task failed with error: {exc}", exc_info=exc)
 
 
 def process_single_month(sharepoint_file: dict) -> None:
     """
-    Reads 'users', 'cards', 'transactions' sheets into dataframes
+    Reads 'users', 'cards', 'transactions' sheets into dataframes, checks status columns in 'data_import'
+    table, only processes sheets that not marked as complete in corresponding status column.
 
     Args:
         sharepoint_file (dict): File metadata dictionary containing 'name' and 'path' key/value pairs
@@ -330,13 +443,27 @@ def process_single_month(sharepoint_file: dict) -> None:
     file_path = sharepoint_file["path"]
     file_name = sharepoint_file["name"]
 
-    users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
-    cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
-    transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+    users_status = sharepoint_file["users_status"]
+    cards_status = sharepoint_file["cards_status"]
+    transactions_status = sharepoint_file["transactions_status"]
 
-    process_users(users, file_name)
-    process_cards(cards, file_name)
-    process_transactions(transactions, file_name)
+    if users_status != "complete":
+        logging.info(f"Initiating import for 'users' from {file_name}...")
+        users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+        process_users(users, file_name)
+
+    if cards_status != "complete":
+        logging.info(f"Initiating import for 'cards' from {file_name}...")
+        cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+        process_cards(cards, file_name)
+
+    if transactions_status != "complete":
+        logging.info(f"Initiating import for 'transactions' from {file_name}...")
+        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+
+        process_transactions(transactions, file_name)
+
+    update_job_finished_at(file_name)
 
 
 def process_users(users: pd.DataFrame, file_name: str) -> None:
@@ -380,7 +507,7 @@ def process_users(users: pd.DataFrame, file_name: str) -> None:
             )
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
 
 
 def process_cards(cards: pd.DataFrame, file_name: str) -> None:
@@ -423,7 +550,7 @@ def process_cards(cards: pd.DataFrame, file_name: str) -> None:
             )
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
 
 
 def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
@@ -467,10 +594,12 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             logging.error(f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
-    bulk_insert(processed_rows, model)
+    bulk_insert(processed_rows, model, file_name)
 
 
-def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
+def bulk_insert(
+    processed_rows: list[dict], model: type[SQLModel], file_name: str
+) -> None:
     """
     Bulk insert records into database in batches of 1000
 
@@ -479,17 +608,117 @@ def bulk_insert(processed_rows: list[dict], model: type[SQLModel]) -> None:
         model (type[SQLModel]): SQLModel table class representing the target database table
     """
 
+    status = 0
+
     batches = len(processed_rows) // 1000
-    logging.info(f"Total number of batches to insert for {model}: {batches}")
+    logging.info(f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
-        logging.info(f"Inserting batch {batch_index}...")
+        logging.info(
+            f"Inserting batch ({model.__name__}) {batch_index} of {batches} from {file_name}..."
+        )
 
         try:
             with Session(engine) as session:
                 session.exec(insert(model), params=batch)
                 session.commit()
 
+        except IntegrityError as e:
+            if isinstance(e.orig, UniqueViolation):
+                logging.warning(
+                    f"An error occurred inserting {batch_index} of {batches} from {file_name}: {e}"
+                )
+
         except Exception as e:
             logging.error(f"An error occurred inserting batch: {e} ")
+            status = 1
             continue
+
+    logging.info(f"Status from processing {file_name}: {status}")
+
+    update_status(file_name, model, status)
+
+
+def update_status(file_name: str, model: type[SQLModel], status: int):
+    """
+    Update import status for sheet data imported, status can be 'failed'
+    or 'complete'
+
+    Args:
+        file_name (str): Name of the source file for tracking data origin
+        model (type[SQLModel]): SQLModel table class representing the target database table
+        status (int): Status code, 0 represents complete, 1 represents failed
+    """
+
+    logging.info(f"Updating status for {file_name}")
+
+    logging.info(f"Model: {model.__name__}")
+    logging.info(f"Type: {type(model.__name__)}")
+    logging.info(f"Status: {status}")
+
+    model_name = model.__name__
+
+    if model_name == "Transactions":
+        logging.info("Model detected is Transactions")
+        column = "transactions_status"
+
+    if model_name == "Cards":
+        logging.info("Model detected is Cards")
+        column = "cards_status"
+
+    if model_name == "Users":
+        logging.info("Model detected is Users")
+        column = "users_status"
+
+    try:
+        with Session(engine) as session:
+            statement = select(DataImport).where(DataImport.file_name == file_name)
+            result = session.exec(statement).first()
+
+            if status == 0:
+                logging.info(
+                    f"{model_name} batches from {file_name} were successfully imported."
+                )
+                logging.info(
+                    f"Updating status for {model_name} from {file_name} to 'complete'."
+                )
+
+                setattr(result, column, "complete")
+            else:
+                logging.info(
+                    f"{model_name} batches {file_name} were not successfully imported!"
+                )
+                logging.info(
+                    f"Updating status for {model_name} from {file_name} to 'failed'."
+                )
+
+                current_status = getattr(result, column)
+
+                if current_status != "complete":
+                    setattr(result, column, "failed")
+
+            session.add(result)
+            session.commit()
+    except Exception as e:
+        logging.error(f"An error occurred updating status for {file_name} import: {e}")
+
+
+def update_job_finished_at(file_name: str):
+    """
+    Update finished_at time in 'data_import' table for job import.
+
+    Args:
+        file_name (str): Name of the source file for tracking data origin
+    """
+
+    try:
+        with Session(engine) as session:
+            statement = select(DataImport).where(DataImport.file_name == file_name)
+            result = session.exec(statement).first()
+
+            result.finished_at = datetime.datetime.now()
+
+            session.add(result)
+            session.commit()
+    except Exception as e:
+        logging.error(f"An error occurred updating finished_at time: {e}")
