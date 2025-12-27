@@ -1,12 +1,13 @@
 import os
 import urllib.parse
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
 from azure.identity import DefaultAzureCredential
 from sqlalchemy import BigInteger, SmallInteger
-from sqlmodel import Column, Field, SQLModel, create_engine, select
+from sqlmodel import Column, Field, SQLModel, create_engine, insert, or_, select
 
 
 class Cards(SQLModel, table=True):
@@ -18,12 +19,10 @@ class Cards(SQLModel, table=True):
     expires: date
     cvv: int = Field(default=None, sa_column=Column(SmallInteger()))
     has_chip: str
-    num_cards_issued: int = Field(
-        default=None, sa_column=Column(SmallInteger()))
+    num_cards_issued: int = Field(default=None, sa_column=Column(SmallInteger()))
     credit_limit: int = Field(default=None, sa_column=Column(BigInteger()))
     acct_open_date: date
-    year_pin_last_changed: int = Field(
-        default=None, sa_column=Column(SmallInteger()))
+    year_pin_last_changed: int = Field(default=None, sa_column=Column(SmallInteger()))
     card_on_dark_web: str
     source: Optional[str] | None = None
 
@@ -46,14 +45,10 @@ class Transactions(SQLModel, table=True):
 
 class Users(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    current_age: int | None = Field(
-        default=None, sa_column=Column(SmallInteger()))
-    retirement_age: int | None = Field(
-        default=None, sa_column=Column(SmallInteger()))
-    birth_year: int | None = Field(
-        default=None, sa_column=Column(SmallInteger()))
-    birth_month: int | None = Field(
-        default=None, sa_column=Column(SmallInteger()))
+    current_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
+    retirement_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
+    birth_year: int | None = Field(default=None, sa_column=Column(SmallInteger()))
+    birth_month: int | None = Field(default=None, sa_column=Column(SmallInteger()))
     gender: str
     address: str
     latitude: Decimal = Field(default=0, max_digits=18, decimal_places=2)
@@ -62,8 +57,7 @@ class Users(SQLModel, table=True):
     yearly_income: int
     total_debt: int
     credit_score: int = Field(default=None, sa_column=Column(BigInteger()))
-    num_credit_cards: int = Field(
-        default=None, sa_column=Column(SmallInteger()))
+    num_credit_cards: int = Field(default=None, sa_column=Column(SmallInteger()))
     source: Optional[str] | None = None
 
 
@@ -81,29 +75,29 @@ class DataImport(SQLModel, table=True):
     transactions_status: Optional[str] | None = None
 
 
-db_password = os.environ.get("DB_PASSWORD")
+# db_password = os.environ.get("DB_PASSWORD")
 
 # For Postgres running locally use below
-engine = create_engine(
-    f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
-)
+# engine = create_engine(
+#     f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
+# )
 
 # For Postgres running in Azure and using token based auth
-# credential = DefaultAzureCredential()
-# token = credential.get_token(
-#     "https://ossrdbms-aad.database.windows.net/.default")
-# access_token = token.token
+credential = DefaultAzureCredential()
+token = credential.get_token(
+    "https://ossrdbms-aad.database.windows.net/.default")
+access_token = token.token
 
-# username = "POSTGRESQL_ADMINS"
-# encoded_username = urllib.parse.quote(username, safe="")
-# host = os.environ.get("DB_HOST")
-# db_name = "transactions"
+username = "POSTGRESQL_ADMINS"
+encoded_username = urllib.parse.quote(username, safe="")
+host = os.environ.get("DB_HOST")
+db_name = "transactions"
 
-# connection_string = f"postgresql://{encoded_username}:{host}/{db_name}"
+connection_string = f"postgresql://{encoded_username}:{host}/{db_name}"
 
-# engine = create_engine(
-#     connection_string,
-#     connect_args={
-#         "password": access_token,
-#     },
-# )
+engine = create_engine(
+    connection_string,
+    connect_args={
+        "password": access_token,
+    },
+)
