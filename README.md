@@ -15,7 +15,7 @@ This repository contains a serverless file processing backend app using Azure Fu
 
 ## Getting Started
 
-This project is designed as a learning resource for using Python based Azure Functions to interact with a PostgreSQL database hosted in Azure.
+This project is a serverless data processing pipeline built using Azure Functions. It demonstrates automated ingestion of financial transaction data from SharePoint into PostgreSQL. Infrastructure management and database migrations are handled through CI/CD.
 
 ### Prerequisites
 
