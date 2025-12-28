@@ -187,7 +187,7 @@ jobs:
 
       - name: Create GitHub Runner FW rule
         env:
-          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_NAME: ${{ secrets.PSQL_SERVER_NAME }}
         run: |
           echo "::add-mask::$DB_NAME"          
           RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
@@ -210,7 +210,7 @@ jobs:
 
       - name: Delete GitHub Runner FW rule
         env:
-          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_NAME: ${{ secrets.PSQL_SERVER_NAME }}
         run: |
           echo "::add-mask::$DB_NAME"          
           RUNNER_IP=$(curl -s https://api.ipify.org?format=json | jq -r '.ip')
