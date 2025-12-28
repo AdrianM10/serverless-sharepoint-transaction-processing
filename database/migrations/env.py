@@ -6,7 +6,14 @@ from sqlmodel import SQLModel
 
 from alembic import context
 import urllib.parse
-from models import Cards, Transactions, Users
+from models import (
+    Cards, Transactions, Users, AuditLog, DataImport,
+    log_changes_function,
+    audit_cards_trigger, audit_transactions_trigger,
+    audit_users_trigger, audit_data_import_trigger
+)
+
+from alembic_utils.replaceable_entity import register_entities
 
 import os
 
@@ -51,6 +58,12 @@ target_metadata = SQLModel.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+# Register entities with alembic_utils.
+register_entities([ log_changes_function,
+    audit_cards_trigger,
+    audit_transactions_trigger,
+    audit_users_trigger,
+    audit_data_import_trigger])
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.

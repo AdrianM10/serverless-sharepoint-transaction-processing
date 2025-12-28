@@ -9,3 +9,4 @@ requests
 azure-identity
 azure-keyvault-secrets
 msgraph-sdk
+alembic_utils

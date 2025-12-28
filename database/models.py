@@ -7,7 +7,11 @@ from typing import Optional
 
 from azure.identity import DefaultAzureCredential
 from sqlalchemy import BigInteger, SmallInteger
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Column, Field, SQLModel, create_engine, insert, or_, select
+
+from alembic_utils.pg_function import PGFunction
+from alembic_utils.pg_trigger import PGTrigger
 
 
 class Cards(SQLModel, table=True):
@@ -19,10 +23,12 @@ class Cards(SQLModel, table=True):
     expires: date
     cvv: int = Field(default=None, sa_column=Column(SmallInteger()))
     has_chip: str
-    num_cards_issued: int = Field(default=None, sa_column=Column(SmallInteger()))
+    num_cards_issued: int = Field(
+        default=None, sa_column=Column(SmallInteger()))
     credit_limit: int = Field(default=None, sa_column=Column(BigInteger()))
     acct_open_date: date
-    year_pin_last_changed: int = Field(default=None, sa_column=Column(SmallInteger()))
+    year_pin_last_changed: int = Field(
+        default=None, sa_column=Column(SmallInteger()))
     card_on_dark_web: str
     source: Optional[str] | None = None
 
@@ -45,10 +51,14 @@ class Transactions(SQLModel, table=True):
 
 class Users(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    current_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
-    retirement_age: int | None = Field(default=None, sa_column=Column(SmallInteger()))
-    birth_year: int | None = Field(default=None, sa_column=Column(SmallInteger()))
-    birth_month: int | None = Field(default=None, sa_column=Column(SmallInteger()))
+    current_age: int | None = Field(
+        default=None, sa_column=Column(SmallInteger()))
+    retirement_age: int | None = Field(
+        default=None, sa_column=Column(SmallInteger()))
+    birth_year: int | None = Field(
+        default=None, sa_column=Column(SmallInteger()))
+    birth_month: int | None = Field(
+        default=None, sa_column=Column(SmallInteger()))
     gender: str
     address: str
     latitude: Decimal = Field(default=0, max_digits=18, decimal_places=2)
@@ -57,7 +67,8 @@ class Users(SQLModel, table=True):
     yearly_income: int
     total_debt: int
     credit_score: int = Field(default=None, sa_column=Column(BigInteger()))
-    num_credit_cards: int = Field(default=None, sa_column=Column(SmallInteger()))
+    num_credit_cards: int = Field(
+        default=None, sa_column=Column(SmallInteger()))
     source: Optional[str] | None = None
 
 
@@ -73,6 +84,96 @@ class DataImport(SQLModel, table=True):
     users_status: Optional[str] | None = None
     cards_status: Optional[str] | None = None
     transactions_status: Optional[str] | None = None
+
+
+class AuditLog(SQLModel, table=True):
+    __tablename__ = "audit_log"
+    id: int | None = Field(default=None, primary_key=True)
+    table_name: str
+    operation: str
+    old_data: dict = Field(default=None, sa_column=Column(JSONB))
+    new_data: dict = Field(default=None, sa_column=Column(JSONB))
+    changed_at: datetime
+
+
+log_changes_function = PGFunction(
+    schema="public",
+    signature="log_changes()",
+    definition="""
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF TG_OP = 'UPDATE' THEN
+            -- Only log if something actually changed
+            IF OLD IS DISTINCT FROM NEW THEN
+                INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
+                VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), NOW());
+            END IF;
+        ELSIF TG_OP = 'INSERT' THEN
+            INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
+            VALUES (TG_TABLE_NAME, TG_OP, NULL, row_to_json(NEW), NOW());
+        ELSIF TG_OP = 'DELETE' THEN
+            INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
+            VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, NOW());
+        ELSIF TG_OP = 'TRUNCATE' THEN
+            -- TRUNCATE has no row data, but we still want to log it
+            INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
+            VALUES (TG_TABLE_NAME, 'TRUNCATE', NULL, NULL, NOW());
+        END IF;
+         -- Return appropriate value based on operation
+        IF TG_OP = 'TRUNCATE' THEN
+            RETURN NULL;  -- Required for TRUNCATE triggers
+        ELSE
+            RETURN COALESCE(NEW, OLD);
+        END IF;
+    END;
+    $$ LANGUAGE plpgsql;
+    """
+)
+
+
+audit_cards_trigger = PGTrigger(
+    schema="public",
+    signature="audit_cards_trigger",
+    on_entity="public.cards",
+    is_constraint=False,
+    definition="""
+    BEFORE INSERT OR UPDATE OR DELETE ON cards
+    FOR EACH ROW EXECUTE FUNCTION log_changes()
+    """
+)
+
+audit_transactions_trigger = PGTrigger(
+    schema="public",
+    signature="audit_transactions_trigger",
+    on_entity="public.transactions",
+    is_constraint=False,
+    definition="""
+    BEFORE INSERT OR UPDATE OR DELETE ON transactions
+    FOR EACH ROW EXECUTE FUNCTION log_changes()
+    """
+)
+
+audit_users_trigger = PGTrigger(
+    schema="public",
+    signature="audit_users_trigger",
+    on_entity="public.users",
+    is_constraint=False,
+    definition="""
+    BEFORE INSERT OR UPDATE OR DELETE ON users
+    FOR EACH ROW EXECUTE FUNCTION log_changes()
+    """
+)
+
+audit_data_import_trigger = PGTrigger(
+    schema="public",
+    signature="audit_data_import_trigger",
+    on_entity="public.data_import",
+    is_constraint=False,
+    definition="""
+    BEFORE INSERT OR UPDATE OR DELETE ON data_import
+    FOR EACH ROW EXECUTE FUNCTION log_changes()
+    """
+)
 
 
 # db_password = os.environ.get("DB_PASSWORD")
