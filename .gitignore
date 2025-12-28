@@ -1,2 +1,12 @@
 local-iac/*
 code_snippets/*
+.vscode/*
+database/migrations/versions/__pycache__/*
+database/migrations/__pycache__/*
+database/__pycache__/*
+.DS_Store
+database/migrations/.DS_Store
+database/migrations/versions/.DS_Store
+function_apps/.DS_Store
+function_apps/ingest_sharepoint_files/.DS_Store
+.DS_Store
