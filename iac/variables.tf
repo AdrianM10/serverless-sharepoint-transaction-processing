@@ -27,7 +27,6 @@ variable "base_config" {
     app_service_plan = string
     log_analytics    = string
     function_apps    = list(string)
-    kv_name          = string
   })
 }
 

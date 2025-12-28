@@ -8,5 +8,4 @@ base_config = {
   app_service_plan = "asp"
   log_analytics    = "law"
   function_apps    = ["sptxn-fn-app"]
-  kv_name          = var.kv_name
 }
