@@ -5,7 +5,7 @@ This repository contains a serverless file processing backend app using Azure Fu
 
 ## Repository Structure
 
-- **`github/workflows/`** - GitHub Actions and CI/CD related configurations
+- **`.github/workflows/`** - GitHub Actions and CI/CD related configurations
 - **`database/`** - Migration scripts for database
 - **`function_apps/ingest_sharepoint_files/`** - Timer based trigger function app that processes xlsx files from sharepoint and persists data into PostgreSQL
 - **`iac/`** - Terraform modules to deploy Azure Functions, PostgreSQL, Virtual Network and Key Vault
@@ -90,7 +90,7 @@ This project is a serverless data processing pipeline built using Azure Function
 6. Under **All workflows**, select **Deploy Serverless Financial Transactions Processing App**.
 7. Select **Run workflow**, select **yes** under the **Deploy infrastructure (y/n) ?**, ensure **no** is set under **Perform database migration (y/n) ?**.  
 8. Wait for the infrastructure deployment to complete successfully. This will provision Azure Functions, PostgreSQL database, Virtual Network as well as the Azure Key Vault.
-9. Once the infrastructure has been deployment run the workflow again, this time select **no** for the infrastructure deployment and **yes** for the database migration to apply the alembic schema migrations.
+9. Once the infrastructure has been deployed, run the workflow again, this time select **no** for the infrastructure deployment and **yes** for the database migration to apply the alembic schema migrations.
 
 Note: Infrastructure deployment and database migrations are separate operations.
 
@@ -126,8 +126,7 @@ Create and populate the below repository secrets:
 - **IP_ADDRESS** - Your public IP address to be whitelisted on the firewall rule.
 - **POSTGRESQL_ADMINS_OBJECT_ID** - Entra security group object ID
 - **PSQL_SERVER_NAME** - A unique name that identifies your Azure Database for PostgreSQL flexible server instance
-- **DB_HOST** - Fully Qualified Domain Name for PostgreSQL flexible server instance, format:
-
+- **DB_HOST** - Fully Qualified Domain Name for PostgreSQL flexible server instance including an "@" prefix, format:
 ```
 @{{PSQL_SERVER_NAME}}-postgresqlserver.postgres.database.azure.com:5432
 ```
@@ -139,8 +138,14 @@ Create and populate the below repository secrets:
 https://{{KV_NAME}}.vault.azure.net/
 ```
 
+## Azure Key Vault Secrets
 
+After the infrastructure deployment, create the below secrets in the provisioned Azure Key Vault using values from the **Register an app in Entra** and **Microsoft Teams Site setup** sections.
 
+- **sharepoint-client-id**
+- **sharepoint-client-secret**
+- **sharepoint-site-drive-id**
+- **sharepoint-tenant-id**
 
 ## Technologies Used
 
