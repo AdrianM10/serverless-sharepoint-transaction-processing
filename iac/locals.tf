@@ -9,7 +9,7 @@ locals {
     storage_account  = var.base_config.storage_account
     app_service_plan = var.base_config.app_service_plan
     log_analytics    = var.base_config.log_analytics
-    kv_name          = var.kv_name_base
+    kv_name          = var.base_config.kv_name
   }
 
   # Function app configurations

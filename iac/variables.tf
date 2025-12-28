@@ -46,9 +46,9 @@ variable "alert_config" {
 
 }
 
-variable "kv_name_base" {
+variable "kv_name" {
   type        = string
-  description = "Base name for Azure Key Vault"
+  description = "Azure Key Vault name"
   sensitive   = true
 }
 

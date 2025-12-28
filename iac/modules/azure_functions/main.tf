@@ -133,7 +133,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "function_alert_query"
 
 
 data "azurerm_key_vault" "kv" {
-  name                = "kv-ssp-txn-dev-01"
+  name                = var.kv_name
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 

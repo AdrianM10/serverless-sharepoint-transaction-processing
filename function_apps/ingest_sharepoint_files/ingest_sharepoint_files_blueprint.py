@@ -29,17 +29,15 @@ from models import (
 
 ingest_sp_bp = func.Blueprint()
 
-logging.basicConfig(level=logging.INFO, force=True)
-
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 0 */2 * * *",
+    schedule="0 */30 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
 )
-def timer_trigger(myTimer: func.TimerRequest) -> None:
+def timer_trigger(myTimer: func.TimerRequest, context: func.Context) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
 
@@ -78,7 +76,7 @@ def timer_trigger(myTimer: func.TimerRequest) -> None:
                     download_sharepoint_files(files_to_download)
                 )
                 logging.info("Starting import job for sharepoint files...")
-                asyncio.run(ingest_sharepoint_files(sharepoint_files))
+                asyncio.run(ingest_sharepoint_files(sharepoint_files, context))
                 logging.info("Finished import job")
 
     logging.info("Python timer trigger function executed.")
@@ -407,13 +405,14 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
         return None
 
 
-async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
+async def ingest_sharepoint_files(sharepoint_files: list[dict], context: func.Context) -> None:
     """
     Ingest records from xlsx file
 
     Args:
         sharepoint_files (list[dict]): List of file metadata dictionaries containing 'name' and 'path'
                                        key/value pairs for xlsx files
+        context (func.Context): Azure Functions context for logging
     """
 
     try:
@@ -421,13 +420,13 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict]) -> None:
         async with asyncio.TaskGroup() as tg:
             for sharepoint_file in sharepoint_files:
                 logging.info(f"Creating task for {sharepoint_file['name']}")
-                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file))
+                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file, context))
     except ExceptionGroup as eg:
         for exc in eg.exceptions:
             logging.error(f"Task failed with error: {exc}", exc_info=exc)
 
 
-def process_single_month(sharepoint_file: dict) -> None:
+def process_single_month(sharepoint_file: dict, context: func.Context) -> None:
     """
     Reads 'users', 'cards', 'transactions' sheets into dataframes, checks status columns in 'data_import'
     table, only processes sheets that not marked as complete in corresponding status column.
@@ -435,8 +434,11 @@ def process_single_month(sharepoint_file: dict) -> None:
     Args:
         sharepoint_file (dict): File metadata dictionary containing 'name' and 'path' key/value pairs
         for xlsx with user, card and transactions data
+        context (func.Context): Azure Functions context for logging
 
     """
+
+    context.thread_local_storage.invocation_id = context.invocation_id
 
     logging.info(f"Processing {sharepoint_file['name']}...")
 
