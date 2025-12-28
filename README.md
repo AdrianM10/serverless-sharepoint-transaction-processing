@@ -80,25 +80,66 @@ This project is designed as a learning resource for using Python based Azure Fun
 
 11. If you receive a **403** error, your signed in user will need permissions to perform the operation, select the **Modify Permissions** tab and consent to the **Sites.FullControl.All** permissions.
 
-
 ## Usage
 
 1. Fork this repository to your own account.
 2. Create a security group in Entra named **POSTGRESQL_ADMINS**.
 3. [Configure OpenID Connect in Azure](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure).
-4. Create the below repository secrets:
+4. Create and populate repository secrets, see **Repository secrets** section for required secrets.
+5. Navigate towards the **Actions** tab, select **Deploy terraform backend** and select **Run workflow** on the main branch.
+6. Under **All workflows**, select **Deploy Serverless Financial Transactions Processing App**.
+7. Select **Run workflow**, select **yes** under the **Deploy infrastructure (y/n) ?**, ensure **no** is set under **Perform database migration (y/n) ?**.  
+8. Wait for the infrastructure deployment to complete successfully. This will provision Azure Functions, PostgreSQL database, Virtual Network as well as the Azure Key Vault.
+9. Once the infrastructure has been deployment run the workflow again, this time select **no** for the infrastructure deployment and **yes** for the database migration to apply the alembic schema migrations.
 
-    - ALERT_CONFIG
-    - AZURE_CLIENT_ID
-    - AZURE_SUBSCRIPTION_ID
-    - AZURE_TENANT_ID
-    - DB_HOST
-    - IP_ADDRESS
-    - KV_NAME
-    - POSTGRESQL_ADMINS_OBJECT_ID
-    - PSQL_SERVER_NAME
-    - STORAGE_ACCOUNT_NAME
-    - VAULT_URL_DEV
+Note: Infrastructure deployment and database migrations are separate operations.
+
+- **Infrastructure deployment** - Use when deploying new resources, updating Terraform configurations or deploying function (app) code changes.
+
+- **Database migration** - Use when applying alembic schema changes to database.
+
+## Repository secrets
+
+Create and populate the below repository secrets:
+
+- **ALERT_CONFIG** - Contact info for environment specific alerts.
+
+```
+{
+
+  dev = {
+    contact_name  = "Dev Support"
+    contact_email = "dev@example.com"
+  }
+  prod = {
+    contact_name  = "Prod Support"
+    contact_email = "prod@example.com"
+  }
+
+}
+```
+
+- **AZURE_CLIENT_ID** - Application (client) ID from the federated credential app registration
+- **AZURE_SUBSCRIPTION_ID** -  Azure subscription ID where resources will be deployed
+- **AZURE_TENANT_ID** - Microsoft Entra tenant ID
+
+- **IP_ADDRESS** - Your public IP address to be whitelisted on the firewall rule.
+- **POSTGRESQL_ADMINS_OBJECT_ID** - Entra security group object ID
+- **PSQL_SERVER_NAME** - A unique name that identifies your Azure Database for PostgreSQL flexible server instance
+- **DB_HOST** - Fully Qualified Domain Name for PostgreSQL flexible server instance, format:
+
+```
+@<{{PSQL_SERVER_NAME}}-postgresqlserver.postgres.database.azure.com:5432
+```
+- **STORAGE_ACCOUNT_NAME** - Globally unique name for Storage Account resource to be created.
+- **KV_NAME** - Globally unique name for Azure Key Vault resource to be created.
+- **VAULT_URL_DEV** - Azure Key Vault URI, format:
+
+``` 
+https://{{KV_NAME}}.vault.azure.net/
+```
+
+
 
 
 ## Technologies Used
