@@ -86,6 +86,7 @@ module "azure_functions" {
   vault_url_dev           = var.vault_url_dev
   db_host                 = var.db_host
   functions_subnet_id     = module.azure_vnet.functions_subnet_id
+  kv_name                 = local.resource_names.kv_name
 
   depends_on = [module.azure_postgresql, module.azure_vnet, module.azure_kv]
 

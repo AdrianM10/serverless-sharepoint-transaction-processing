@@ -37,6 +37,8 @@ variable "environment" {
 
 }
 
+
+
 variable "project_name" {
   description = "Name of the project"
   type        = string
@@ -74,4 +76,10 @@ variable "db_host" {
 variable "functions_subnet_id" {
   description = "Subnet ID for function app vnet integration"
   type        = string
+}
+
+variable "kv_name" {
+  type        = string
+  description = "Azure Key Vault name"
+  sensitive   = true
 }
