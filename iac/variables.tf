@@ -27,6 +27,7 @@ variable "base_config" {
     app_service_plan = string
     log_analytics    = string
     function_apps    = list(string)
+    kv_name          = string
   })
 }
 
@@ -84,6 +85,6 @@ variable "db_host" {
 
 variable "tenant_id" {
   description = "Azure Tenant ID"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
 }
