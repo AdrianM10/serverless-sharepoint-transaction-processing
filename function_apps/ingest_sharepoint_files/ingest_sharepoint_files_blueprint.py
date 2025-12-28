@@ -32,7 +32,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 */30 * * * *",
+    schedule="0 0 6 * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
