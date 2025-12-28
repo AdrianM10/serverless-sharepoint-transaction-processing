@@ -15,7 +15,7 @@ This repository contains a serverless file processing backend app using Azure Fu
 
 ## Getting Started
 
-This project is designed as a learning resource for using Python based Azure Functions to interact with a PostgreSQL database hosted in Azure.
+This project is a serverless data processing pipeline built using Azure Functions. It demonstrates automated ingestion of financial transaction data from SharePoint into PostgreSQL. Infrastructure management and database migrations are handled through CI/CD.
 
 ### Prerequisites
 
@@ -129,7 +129,7 @@ Create and populate the below repository secrets:
 - **DB_HOST** - Fully Qualified Domain Name for PostgreSQL flexible server instance, format:
 
 ```
-@<{{PSQL_SERVER_NAME}}-postgresqlserver.postgres.database.azure.com:5432
+@{{PSQL_SERVER_NAME}}-postgresqlserver.postgres.database.azure.com:5432
 ```
 - **STORAGE_ACCOUNT_NAME** - Globally unique name for Storage Account resource to be created.
 - **KV_NAME** - Globally unique name for Azure Key Vault resource to be created.
