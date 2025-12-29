@@ -114,17 +114,9 @@ log_changes_function = PGFunction(
         ELSIF TG_OP = 'DELETE' THEN
             INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
             VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), NULL, NOW());
-        ELSIF TG_OP = 'TRUNCATE' THEN
-            -- TRUNCATE has no row data, but we still want to log it
-            INSERT INTO audit_log (table_name, operation, old_data, new_data, changed_at) 
-            VALUES (TG_TABLE_NAME, 'TRUNCATE', NULL, NULL, NOW());
         END IF;
-         -- Return appropriate value based on operation
-        IF TG_OP = 'TRUNCATE' THEN
-            RETURN NULL;  -- Required for TRUNCATE triggers
-        ELSE
-            RETURN COALESCE(NEW, OLD);
-        END IF;
+        
+        RETURN COALESCE(NEW, OLD);
     END;
     $$ LANGUAGE plpgsql;
     """
