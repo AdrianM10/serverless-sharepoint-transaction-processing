@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import tempfile
+import math
 from itertools import batched
 
 import azure.functions as func
@@ -13,7 +14,8 @@ from azure.keyvault.secrets import SecretClient
 from msgraph import GraphServiceClient
 from psycopg2.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session
+from sqlmodel import Session, insert, or_, select
+
 
 from models import (
     Cards,
@@ -22,9 +24,6 @@ from models import (
     Transactions,
     Users,
     engine,
-    insert,
-    or_,
-    select,
 )
 
 ingest_sp_bp = func.Blueprint()
@@ -405,7 +404,9 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
         return None
 
 
-async def ingest_sharepoint_files(sharepoint_files: list[dict], context: func.Context) -> None:
+async def ingest_sharepoint_files(
+    sharepoint_files: list[dict], context: func.Context
+) -> None:
     """
     Ingest records from xlsx file
 
@@ -420,7 +421,9 @@ async def ingest_sharepoint_files(sharepoint_files: list[dict], context: func.Co
         async with asyncio.TaskGroup() as tg:
             for sharepoint_file in sharepoint_files:
                 logging.info(f"Creating task for {sharepoint_file['name']}")
-                tg.create_task(asyncio.to_thread(process_single_month, sharepoint_file, context))
+                tg.create_task(
+                    asyncio.to_thread(process_single_month, sharepoint_file, context)
+                )
     except ExceptionGroup as eg:
         for exc in eg.exceptions:
             logging.error(f"Task failed with error: {exc}", exc_info=exc)
@@ -612,12 +615,12 @@ def bulk_insert(
 
     status = 0
 
-    batches = len(processed_rows) // 1000
+    batches = math.ceil(len(processed_rows) / 1000)
     logging.info(f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
         logging.info(
-            f"Inserting batch ({model.__name__}) {batch_index} of {batches} from {file_name}..."
+            f"Inserting batch ({model.__name__}) {batch_index + 1} of {batches} from {file_name}..."
         )
 
         try:
@@ -628,8 +631,9 @@ def bulk_insert(
         except IntegrityError as e:
             if isinstance(e.orig, UniqueViolation):
                 logging.warning(
-                    f"An error occurred inserting {batch_index} of {batches} from {file_name}: {e}"
+                    f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
                 )
+            continue
 
         except Exception as e:
             logging.error(f"An error occurred inserting batch: {e} ")
