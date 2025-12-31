@@ -6,7 +6,8 @@
           "isEnabled": true,
           "excludedTypes": "Request"
         }
-      }
+      },
+      "fileLoggingMode": "always"
     },
     "extensionBundle": {
       "id": "Microsoft.Azure.Functions.ExtensionBundle",

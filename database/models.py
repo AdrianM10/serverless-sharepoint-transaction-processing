@@ -96,6 +96,14 @@ class AuditLog(SQLModel, table=True):
     changed_at: datetime
 
 
+class FailedImports(SQLModel, table=True):
+    __tablename__ = "failed_imports"
+    id: int | None = Field(default=None, primary_key=True)
+    table_name: str
+    error: str
+    source: str
+
+
 log_changes_function = PGFunction(
     schema="public",
     signature="log_changes()",

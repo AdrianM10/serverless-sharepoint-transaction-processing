@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import math
+import uuid
 from itertools import batched
 
 import azure.functions as func
@@ -23,6 +24,7 @@ from models import (
     SQLModel,
     Transactions,
     Users,
+    FailedImports,
     engine,
 )
 
@@ -33,7 +35,7 @@ ingest_sp_bp = func.Blueprint()
 @ingest_sp_bp.schedule(
     schedule="0 0 6 * * *",
     arg_name="myTimer",
-    run_on_startup=False,
+    run_on_startup=True,
     use_monitor=False,
 )
 def timer_trigger(myTimer: func.TimerRequest, context: func.Context) -> None:
@@ -44,7 +46,8 @@ def timer_trigger(myTimer: func.TimerRequest, context: func.Context) -> None:
 
     if yearly_directories:
         for yearly_directory in yearly_directories:
-            monthly_directories = retrieve_monthly_directories(yearly_directory)
+            monthly_directories = retrieve_monthly_directories(
+                yearly_directory)
 
             logging.info(f"monthly_directories: {monthly_directories}")
 
@@ -58,7 +61,8 @@ def timer_trigger(myTimer: func.TimerRequest, context: func.Context) -> None:
                     )
                     logging.info(path_relative_to_root)
 
-                    retrieved_files = asyncio.run(retrieve_files(path_relative_to_root))
+                    retrieved_files = asyncio.run(
+                        retrieve_files(path_relative_to_root))
 
                     files_to_process.extend(retrieved_files)
 
@@ -155,7 +159,8 @@ async def retrieve_sharepoint_directories(
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
         logging.info(drive_id)
@@ -176,7 +181,8 @@ async def retrieve_sharepoint_directories(
         return directories
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving sharepoint directories: {e}")
+        logging.error(
+            f"An error occurred retrieving sharepoint directories: {e}")
         return None
 
 
@@ -224,7 +230,8 @@ async def retrieve_files(path_relative_to_root: str) -> list[dict] | None:
         return files_to_process
 
     except Exception as e:
-        logging.error(f"An error occurred retrieving file from SharePoint: {e}")
+        logging.error(
+            f"An error occurred retrieving file from SharePoint: {e}")
         return None
 
 
@@ -317,10 +324,12 @@ def generate_graph_client() -> GraphServiceClient | None:
         vault_url = os.getenv("vault_url")
 
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         client_id = secret_client.get_secret("sharepoint-client-id").value
-        client_secret = secret_client.get_secret("sharepoint-client-secret").value
+        client_secret = secret_client.get_secret(
+            "sharepoint-client-secret").value
         tenant_id = secret_client.get_secret("sharepoint-tenant-id").value
 
         credential = ClientSecretCredential(
@@ -328,7 +337,8 @@ def generate_graph_client() -> GraphServiceClient | None:
         )
 
         scopes = ["https://graph.microsoft.com/.default"]
-        graph_client = GraphServiceClient(credentials=credential, scopes=scopes)
+        graph_client = GraphServiceClient(
+            credentials=credential, scopes=scopes)
 
         return graph_client
     except Exception as e:
@@ -355,7 +365,8 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
         credential = DefaultAzureCredential()
 
         vault_url = os.getenv("vault_url")
-        secret_client = SecretClient(vault_url=vault_url, credential=credential)
+        secret_client = SecretClient(
+            vault_url=vault_url, credential=credential)
 
         drive_id = secret_client.get_secret("sharepoint-site-drive-id").value
 
@@ -396,7 +407,8 @@ async def download_sharepoint_files(files_to_download: list[dict]) -> list[dict]
 
                 file_paths.append(file_metadata)
             except Exception as e:
-                logging.error(f"An error occurred downloading file: {name}. {e}")
+                logging.error(
+                    f"An error occurred downloading file: {name}. {e}")
 
         return file_paths
     except Exception as e:
@@ -422,7 +434,8 @@ async def ingest_sharepoint_files(
             for sharepoint_file in sharepoint_files:
                 logging.info(f"Creating task for {sharepoint_file['name']}")
                 tg.create_task(
-                    asyncio.to_thread(process_single_month, sharepoint_file, context)
+                    asyncio.to_thread(process_single_month,
+                                      sharepoint_file, context)
                 )
     except ExceptionGroup as eg:
         for exc in eg.exceptions:
@@ -463,8 +476,10 @@ def process_single_month(sharepoint_file: dict, context: func.Context) -> None:
         process_cards(cards, file_name)
 
     if transactions_status != "complete":
-        logging.info(f"Initiating import for 'transactions' from {file_name}...")
-        transactions = pd.read_excel(open(file_path, "rb"), sheet_name="transactions")
+        logging.info(
+            f"Initiating import for 'transactions' from {file_name}...")
+        transactions = pd.read_excel(
+            open(file_path, "rb"), sheet_name="transactions")
 
         process_transactions(transactions, file_name)
 
@@ -582,10 +597,12 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
                 "use_chip": row["use_chip"],
                 "merchant_id": row["merchant_id"],
                 "merchant_city": (
-                    None if pd.isna(row["merchant_city"]) else row["merchant_city"]
+                    None if pd.isna(row["merchant_city"]
+                                    ) else row["merchant_city"]
                 ),
                 "merchant_state": (
-                    None if pd.isna(row["merchant_state"]) else row["merchant_state"]
+                    None if pd.isna(row["merchant_state"]
+                                    ) else row["merchant_state"]
                 ),
                 "zip": None if pd.isna(row["zip"]) else row["zip"],
                 "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
@@ -596,7 +613,8 @@ def process_transactions(transactions: pd.DataFrame, file_name: str) -> None:
             processed_rows.append(row_data)
 
         except Exception as e:
-            logging.error(f"An error occurred processing record {row_data['id']}: {e}")
+            logging.error(
+                f"An error occurred processing record {row_data['id']}: {e}")
             continue
 
     bulk_insert(processed_rows, model, file_name)
@@ -616,7 +634,8 @@ def bulk_insert(
     status = 0
 
     batches = math.ceil(len(processed_rows) / 1000)
-    logging.info(f"Total number of batches to insert for {file_name}: {batches}")
+    logging.info(
+        f"Total number of batches to insert for {file_name}: {batches}")
 
     for batch_index, batch in enumerate(batched(processed_rows, 1000)):
         logging.info(
@@ -630,19 +649,63 @@ def bulk_insert(
 
         except IntegrityError as e:
             if isinstance(e.orig, UniqueViolation):
-                logging.warning(
-                    f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
-                )
+                error_message = f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
+                logging.warning(error_message)
+
+            failed_imports(file_name, model, error_message)
             continue
 
         except Exception as e:
-            logging.error(f"An error occurred inserting batch: {e} ")
+            error_message = f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
+            logging.error(error_message)
             status = 1
+            failed_imports(file_name, model, error_message)
             continue
 
     logging.info(f"Status from processing {file_name}: {status}")
 
     update_status(file_name, model, status)
+
+
+def failed_imports(file_name: str, model: type[SQLModel], error_message: str):
+    """
+    Create records in 'failed_imports' table for unsuccessful imports
+
+    Args:
+        file_name (str): Name of the source file for tracking data origin
+        model (type[SQLModel]): SQLModel table class representing the target database table
+        error_message (str): Detailed error message for unsuccessful database insert operation(s)
+    """
+
+    logging.info(f"Inserting failed import record for {file_name}...")
+
+    model_name = model.__name__
+
+    if model_name == "Transactions":
+        logging.info("Model detected is Transactions")
+        table_name = "Transactions"
+
+    if model_name == "Cards":
+        logging.info("Model detected is Cards")
+        table_name = "Cards"
+
+    if model_name == "Users":
+        logging.info("Model detected is Users")
+        table_name = "Users"
+
+
+    id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{file_name}-{table_name}")
+
+    failed_import = FailedImports(id=id, table_name=table_name, error=error_message, source=file_name)
+
+    try:
+
+        with Session(engine) as session:
+            session.add(failed_import)
+            session.commit()
+
+    except Exception as e:
+        logging.error(f"An error occurred updating 'failed_imports' table, {file_name}: {e}")
 
 
 def update_status(file_name: str, model: type[SQLModel], status: int):
@@ -678,7 +741,8 @@ def update_status(file_name: str, model: type[SQLModel], status: int):
 
     try:
         with Session(engine) as session:
-            statement = select(DataImport).where(DataImport.file_name == file_name)
+            statement = select(DataImport).where(
+                DataImport.file_name == file_name)
             result = session.exec(statement).first()
 
             if status == 0:
@@ -706,7 +770,8 @@ def update_status(file_name: str, model: type[SQLModel], status: int):
             session.add(result)
             session.commit()
     except Exception as e:
-        logging.error(f"An error occurred updating status for {file_name} import: {e}")
+        logging.error(
+            f"An error occurred updating status for {file_name} import: {e}")
 
 
 def update_job_finished_at(file_name: str):
@@ -719,7 +784,8 @@ def update_job_finished_at(file_name: str):
 
     try:
         with Session(engine) as session:
-            statement = select(DataImport).where(DataImport.file_name == file_name)
+            statement = select(DataImport).where(
+                DataImport.file_name == file_name)
             result = session.exec(statement).first()
 
             result.finished_at = datetime.datetime.now()
