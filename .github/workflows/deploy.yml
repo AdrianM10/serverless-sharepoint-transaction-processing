@@ -205,8 +205,8 @@ jobs:
           environment: "azure-dev"
         run: |
           echo "::add-mask::$DB_HOST"
+          echo "Environment variable detected: $environment"
           source venv/bin/activate
-          export environment=${{ env.environment }}
           export DB_PASSWORD=$(az account get-access-token --resource-type oss-rdbms --query accessToken --output tsv) 
           alembic upgrade head
 
