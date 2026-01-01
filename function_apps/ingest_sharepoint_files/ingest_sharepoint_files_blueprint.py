@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import math
+import uuid
 from itertools import batched
 
 import azure.functions as func
@@ -23,6 +24,7 @@ from models import (
     SQLModel,
     Transactions,
     Users,
+    FailedImports,
     engine,
 )
 
@@ -31,7 +33,7 @@ ingest_sp_bp = func.Blueprint()
 
 @ingest_sp_bp.function_name(name="IngestSharePointFilesTimer")
 @ingest_sp_bp.schedule(
-    schedule="0 0 6 * * *",
+    schedule="0 */30 * * * *",
     arg_name="myTimer",
     run_on_startup=False,
     use_monitor=False,
@@ -630,19 +632,65 @@ def bulk_insert(
 
         except IntegrityError as e:
             if isinstance(e.orig, UniqueViolation):
-                logging.warning(
-                    f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
-                )
+                error_message = f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
+                logging.warning(error_message)
+
+            failed_imports(file_name, model, error_message)
             continue
 
         except Exception as e:
-            logging.error(f"An error occurred inserting batch: {e} ")
+            error_message = f"An error occurred inserting {batch_index + 1} of {batches} from {file_name}: {e}"
+            logging.error(error_message)
             status = 1
+            failed_imports(file_name, model, error_message)
             continue
 
     logging.info(f"Status from processing {file_name}: {status}")
 
     update_status(file_name, model, status)
+
+
+def failed_imports(file_name: str, model: type[SQLModel], error_message: str):
+    """
+    Create records in 'failed_imports' table for unsuccessful imports
+
+    Args:
+        file_name (str): Name of the source file for tracking data origin
+        model (type[SQLModel]): SQLModel table class representing the target database table
+        error_message (str): Detailed error message for unsuccessful database insert operation(s)
+    """
+
+    logging.info(f"Inserting failed import record for {file_name}...")
+
+    model_name = model.__name__
+
+    if model_name == "Transactions":
+        logging.info("Model detected is Transactions")
+        table_name = "Transactions"
+
+    if model_name == "Cards":
+        logging.info("Model detected is Cards")
+        table_name = "Cards"
+
+    if model_name == "Users":
+        logging.info("Model detected is Users")
+        table_name = "Users"
+
+    id = uuid.uuid5(uuid.NAMESPACE_DNS, f"{file_name}-{table_name}")
+
+    failed_import = FailedImports(
+        id=id, table_name=table_name, error=error_message, source=file_name
+    )
+
+    try:
+        with Session(engine) as session:
+            session.add(failed_import)
+            session.commit()
+
+    except Exception as e:
+        logging.error(
+            f"An error occurred updating 'failed_imports' table, {file_name}: {e}"
+        )
 
 
 def update_status(file_name: str, model: type[SQLModel], status: int):
