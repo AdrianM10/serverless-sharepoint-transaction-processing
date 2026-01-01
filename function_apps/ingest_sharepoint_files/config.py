@@ -34,23 +34,8 @@ def get_database_engine():
 
         db_password = os.environ.get("DB_PASSWORD")
         engine = create_engine(
-            f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
+            f"postgresql://postgres:{db_password}@localhost:5432/transactions"
         )
 
     return engine
 
-
-def get_database_url():
-    """
-    Get database URL string based on environment (local or Azure)
-    """
-    environment = os.getenv("environment", "local")
-
-    if environment in ["azure-dev", "azure-prod"]:
-        username = "POSTGRESQL_ADMINS"
-        encoded_username = urllib.parse.quote(username, safe="")
-        host = os.environ.get("DB_HOST")
-        return f"postgresql://{encoded_username}:PASSWORD@{host}/transactions"
-    else:
-        db_password = os.environ.get("DB_PASSWORD", "PASSWORD")
-        return f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
