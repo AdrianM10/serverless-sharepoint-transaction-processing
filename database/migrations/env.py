@@ -5,10 +5,9 @@ from sqlalchemy import pool
 from sqlmodel import SQLModel
 
 from alembic import context
-from config import get_database_url
 import urllib.parse
 from models import (
-    Cards, Transactions, Users, AuditLog, DataImport, FailedImports,
+    Cards, Transactions, Users, AuditLog, DataImport,
     log_changes_function,
     audit_cards_trigger, audit_transactions_trigger,
     audit_users_trigger, audit_data_import_trigger
@@ -27,11 +26,37 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Get the URL from config module
-url = get_database_url()
+# Get the URL from alembic.ini and replace placeholders
+url = config.get_main_option("sqlalchemy.url")
+
+environment = os.getenv("environment", "local")
+
+if environment in ["azure-dev", "azure-prod"]:
+
+    username = "POSTGRESQL_ADMINS"
+    encoded_username = urllib.parse.quote(username, safe="")
+    password = os.getenv("DB_PASSWORD", "")
+    host = os.environ.get("DB_HOST", "")
+
+    if url:
+
+        url = url.replace("USERNAME", encoded_username).replace(
+            "PASSWORD", password).replace("@HOST", host)
+
+
+else:
+
+    username = "postgres"
+    encoded_username = urllib.parse.quote(username, safe="")
+    password = os.getenv("DB_PASSWORD", "")
+    host = os.environ.get("DB_HOST", "")
+
+    url = url.replace("USERNAME", encoded_username).replace(
+            "PASSWORD", password).replace("@HOST", host)
+    
+
 
 config.set_main_option("sqlalchemy.url", url)
-
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -45,11 +70,12 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 # Register entities with alembic_utils.
-register_entities([ log_changes_function,
-    audit_cards_trigger,
-    audit_transactions_trigger,
-    audit_users_trigger,
-    audit_data_import_trigger])
+register_entities([log_changes_function,
+                   audit_cards_trigger,
+                   audit_transactions_trigger,
+                   audit_users_trigger,
+                   audit_data_import_trigger])
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
