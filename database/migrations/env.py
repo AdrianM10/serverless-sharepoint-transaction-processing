@@ -5,9 +5,10 @@ from sqlalchemy import pool
 from sqlmodel import SQLModel
 
 from alembic import context
+from config import get_database_url
 import urllib.parse
 from models import (
-    Cards, Transactions, Users, AuditLog, DataImport,
+    Cards, Transactions, Users, AuditLog, DataImport, FailedImports,
     log_changes_function,
     audit_cards_trigger, audit_transactions_trigger,
     audit_users_trigger, audit_data_import_trigger
@@ -26,26 +27,11 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Get the URL from alembic.ini and replace the password placeholder
-url = config.get_main_option("sqlalchemy.url")
+# Get the URL from config module
+url = get_database_url()
 
-if url:
-    # Replace PASSWORD (Local Dev & Azure)
-    password = os.getenv("DB_PASSWORD", "")
-    url = url.replace("PASSWORD", password)
-    
-    # Replace USERNAME (Azure Only)
-    if "USERNAME" in url:
-        username = "POSTGRESQL_ADMINS"
-        encoded_username = urllib.parse.quote(username, safe="")
-        url = url.replace("USERNAME", encoded_username)
-    
-    # Replace HOST (Azure Only)
-    if "HOST" in url:
-        host = os.environ.get("DB_HOST", "")
-        url = url.replace("@HOST", host)
-    
-    config.set_main_option("sqlalchemy.url", url)
+config.set_main_option("sqlalchemy.url", url)
+
 
 # add your model's MetaData object here
 # for 'autogenerate' support

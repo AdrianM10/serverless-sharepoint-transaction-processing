@@ -14,17 +14,20 @@ locals {
       disabled_functions = []
       vault_url          = var.vault_url_dev
       db_host            = var.db_host
+      environment        = "azure-dev"
     }
     prod = {
       disabled_functions = ["IngestSharePointFilesTimer"]
       vault_url          = ""
       db_host            = ""
+      environment        = "azure-prod"
     }
   }
 
   function_app_settings = {
-    vault_url = local.base_function_settings[var.environment].vault_url
-    DB_HOST = local.base_function_settings[var.environment].db_host
+    vault_url   = local.base_function_settings[var.environment].vault_url
+    DB_HOST     = local.base_function_settings[var.environment].db_host
+    environment = local.base_function_settings[var.environment].environment
   }
 
   # Dynamically generate disabled function settings

@@ -9,6 +9,8 @@ from azure.identity import DefaultAzureCredential
 from sqlalchemy import BigInteger, SmallInteger
 from sqlmodel import (Column, Field, SQLModel, create_engine)
 
+from config import get_database_engine
+
 
 class Cards(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -82,29 +84,4 @@ class FailedImports(SQLModel, table=True):
     source: str
 
 
-db_password = os.environ.get("DB_PASSWORD")
-
-# For Postgres running locally use below
-engine = create_engine(
-    f"postgresql://postgres:{db_password}@localhost:5432/financial_transactions"
-)
-
-# For Postgres running in Azure and using token based auth
-# credential = DefaultAzureCredential()
-# token = credential.get_token(
-#     "https://ossrdbms-aad.database.windows.net/.default")
-# access_token = token.token
-
-# username = "POSTGRESQL_ADMINS"
-# encoded_username = urllib.parse.quote(username, safe="")
-# host = os.environ.get("DB_HOST")
-# db_name = "transactions"
-
-# connection_string = f"postgresql://{encoded_username}:{host}/{db_name}"
-
-# engine = create_engine(
-#     connection_string,
-#     connect_args={
-#         "password": access_token,
-#     },
-# )
+engine = get_database_engine()
