@@ -68,6 +68,16 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
 
+      - name: Create virtual environment
+        run: python -m venv venv
+
+        working-directory: database
+
+      - name: Install dependencies
+        run: |
+          source venv/bin/activate
+          pip install -r requirements.txt
+
       - name: Run database migration
         working-directory: database
         env:
@@ -75,7 +85,6 @@ jobs:
           environment: local
         run: |
           source venv/bin/activate
-          pip install -r requirements.txt
           alembic upgrade head
 
   infrastructure:
@@ -146,7 +155,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
 
-      - name: Create and start virtual environment
+      - name: Create virtual environment
         run: python -m venv venv
 
         working-directory: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
