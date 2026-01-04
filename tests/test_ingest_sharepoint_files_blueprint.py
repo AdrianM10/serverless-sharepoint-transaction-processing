@@ -1,34 +1,31 @@
 import pytest
 import pandas as pd
 
+FILE_PATH = "Sample Financial Transactions Dataset.xlsx"
+
 
 @pytest.fixture
 def cards_data():
-    file_path = "Sample Financial Transactions Dataset.xlsx"
-    cards = pd.read_excel(open(file_path, "rb"), sheet_name="cards")
+    cards = pd.read_excel(open(FILE_PATH, "rb"), sheet_name="cards")
 
     return cards
 
 
 @pytest.fixture
 def users_data():
-    file_path = "Sample Financial Transactions Dataset.xlsx"
-    users = pd.read_excel(open(file_path, "rb"), sheet_name="users")
+    users = pd.read_excel(open(FILE_PATH, "rb"), sheet_name="users")
 
     return users
 
 
 @pytest.fixture
 def transactions_data():
-    file_path = "Sample Financial Transactions Dataset.xlsx"
-    transactions = pd.read_excel(
-        open(file_path, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(open(FILE_PATH, "rb"), sheet_name="transactions")
 
     return transactions
 
 
 def test_cards_data(cards_data):
-
     expected_columns = [
         "id",
         "client_id",
@@ -84,7 +81,7 @@ def test_transactions_data(transactions_data):
         "merchant_state",
         "zip",
         "mcc",
-        "errors"
+        "errors",
     ]
 
     assert len(transactions_data.columns) == len(expected_columns)
