@@ -88,6 +88,12 @@ jobs:
           source venv/bin/activate
           alembic upgrade head
 
+      - name: Run tests
+        working-directory: tests 
+        run: |
+          pip install -r requirements.txt
+          pytest
+
   infrastructure:
     needs: test
     name: Deploy Infrastructure
