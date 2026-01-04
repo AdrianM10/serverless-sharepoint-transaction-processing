@@ -69,11 +69,11 @@ jobs:
           cache: "pip"
 
       - name: Create virtual environment
+        working-directory: database
         run: python -m venv venv
 
-        working-directory: database
-
       - name: Install dependencies
+        working-directory: database
         run: |
           source venv/bin/activate
           pip install -r requirements.txt
@@ -82,6 +82,7 @@ jobs:
         working-directory: database
         env:
           DB_PASSWORD: postgres
+          DB_HOST: "@localhost:5432"
           environment: local
         run: |
           source venv/bin/activate
