@@ -40,7 +40,46 @@ env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: "./function_apps/ingest_sharepoint_files"
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: transactions
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Python version
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Run database migration
+        working-directory: database
+        env:
+          DB_PASSWORD: postgres
+          environment: local
+        run: |
+          source venv/bin/activate
+          pip install -r requirements.txt
+          alembic upgrade head
+
   infrastructure:
+    needs: test
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     if: github.event.inputs.deploy_infrastructure == 'yes'
