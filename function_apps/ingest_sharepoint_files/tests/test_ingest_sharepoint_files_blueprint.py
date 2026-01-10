@@ -1,5 +1,10 @@
 import pytest
 import pandas as pd
+import math
+
+
+from ingest_sharepoint_files_blueprint import bulk_insert
+from models import Transactions, Cards, Users
 
 FILE_PATH = "Sample Financial Transactions Dataset.xlsx"
 
@@ -42,6 +47,7 @@ def test_cards_data(cards_data):
         "card_on_dark_web",
     ]
 
+    assert len(cards_data) > 0
     assert len(cards_data.columns) == len(expected_columns)
     assert set(cards_data.columns) == set(expected_columns)
 
@@ -64,6 +70,7 @@ def test_users_data(users_data):
         "num_credit_cards",
     ]
 
+    assert len(users_data) > 0
     assert len(users_data.columns) == len(expected_columns)
     assert set(users_data.columns) == set(expected_columns)
 
@@ -84,5 +91,14 @@ def test_transactions_data(transactions_data):
         "errors",
     ]
 
+    assert len(transactions_data) > 0
     assert len(transactions_data.columns) == len(expected_columns)
     assert set(transactions_data.columns) == set(expected_columns)
+
+
+def test_bulk_insert(transactions_data):
+    number_of_records = len(transactions_data)
+    expected_batches = math.ceil(number_of_records / 1000)
+
+    assert number_of_records == 5
+    assert expected_batches == 1

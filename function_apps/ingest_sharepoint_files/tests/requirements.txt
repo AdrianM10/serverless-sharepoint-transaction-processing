@@ -1,0 +1,12 @@
+pytest
+pandas
+openpyxl
+azure-functions
+psycopg2-binary
+greenlet
+sqlmodel
+alembic
+requests
+azure-identity
+azure-keyvault-secrets
+msgraph-sdk
