@@ -41,6 +41,7 @@ env:
 
 jobs:
   test:
+    name: Tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -89,7 +90,7 @@ jobs:
           alembic upgrade head
 
       - name: Run tests
-        working-directory: tests 
+        working-directory: ./function_apps/ingest_sharepoint_files/tests 
         run: |
           pip install -r requirements.txt
           pytest
