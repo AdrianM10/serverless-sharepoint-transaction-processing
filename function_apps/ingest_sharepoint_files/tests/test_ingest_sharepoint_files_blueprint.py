@@ -5,10 +5,23 @@ import os
 
 from ingest_sharepoint_files_blueprint import process_transactions
 from models import Transactions, Cards, Users
-from sqlmodel import Session, create_engine, select, delete
+from sqlmodel import Session, SQLModel, create_engine, select, delete
 
 
 FILE_PATH = "Sample Financial Transactions Dataset.xlsx"
+
+
+@pytest.fixture(name="session")
+def session_fixture():
+    db_password = os.environ.get("DB_PASSWORD", "")
+    engine = create_engine(
+        f"postgresql://postgres:{db_password}@localhost:5432/transactions"
+    )
+
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        yield session
 
 
 @pytest.fixture
@@ -98,26 +111,19 @@ def test_transactions_data(transactions_data):
     assert set(transactions_data.columns) == set(expected_columns)
 
 
-def test_process_transactions(transactions_data):
-    db_password = os.environ.get("DB_PASSWORD", "")
-    engine = create_engine(
-        f"postgresql://postgres:{db_password}@localhost:5432/transactions"
-    )
+def test_process_transactions(session: Session, transactions_data):
 
-    with Session(engine) as session:
-        statement = select(Transactions).where(Transactions.source == FILE_PATH)
-        results = session.exec(statement).all()
+    statement = select(Transactions).where(Transactions.source == FILE_PATH)
+    results = session.exec(statement).all()
 
-        assert len(results) == 0
+    assert len(results) == 0
 
     process_transactions(transactions_data, FILE_PATH)
 
-    with Session(engine) as session:
-        statement = select(Transactions).where(Transactions.source == FILE_PATH)
-        results = session.exec(statement).all()
+    statement = select(Transactions).where(Transactions.source == FILE_PATH)
+    results = session.exec(statement).all()
 
-        assert len(results) == 5
+    assert len(results) == 5
 
-        # Delete all records from test post assertion
-        session.exec(delete(Transactions).where(Transactions.source == FILE_PATH))
-        session.commit()
+    session.exec(delete(Transactions).where(Transactions.source == FILE_PATH))
+    session.commit()
