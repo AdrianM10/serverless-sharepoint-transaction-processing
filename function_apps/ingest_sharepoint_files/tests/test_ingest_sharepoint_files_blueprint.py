@@ -1,10 +1,12 @@
 import pytest
 import pandas as pd
 import math
-
+import os
 
 from ingest_sharepoint_files_blueprint import bulk_insert
 from models import Transactions, Cards, Users
+from sqlmodel import Session, create_engine, select, delete
+
 
 FILE_PATH = "Sample Financial Transactions Dataset.xlsx"
 
@@ -97,8 +99,50 @@ def test_transactions_data(transactions_data):
 
 
 def test_bulk_insert(transactions_data):
-    number_of_records = len(transactions_data)
-    expected_batches = math.ceil(number_of_records / 1000)
+    db_password = os.environ.get("DB_PASSWORD", "")
+    engine = create_engine(
+        f"postgresql://postgres:{db_password}@localhost:5432/transactions"
+    )
 
-    assert number_of_records == 5
-    assert expected_batches == 1
+    with Session(engine) as session:
+        statement = select(Transactions).where(Transactions.source == FILE_PATH)
+        results = session.exec(statement).all()
+
+        assert len(results) == 0
+
+    processed_rows = []
+
+    for index, row in transactions_data.iterrows():
+        row_data = {
+            "id": row["id"],
+            "date": row["date"],
+            "client_id": row["client_id"],
+            "card_id": row["card_id"],
+            "amount": row["amount"],
+            "use_chip": row["use_chip"],
+            "merchant_id": row["merchant_id"],
+            "merchant_city": (
+                None if pd.isna(row["merchant_city"]) else row["merchant_city"]
+            ),
+            "merchant_state": (
+                None if pd.isna(row["merchant_state"]) else row["merchant_state"]
+            ),
+            "zip": None if pd.isna(row["zip"]) else row["zip"],
+            "mcc": None if pd.isna(row["mcc"]) else row["mcc"],
+            "errors": None if pd.isna(row["errors"]) else row["errors"],
+            "source": FILE_PATH,
+        }
+
+        processed_rows.append(row_data)
+
+    bulk_insert(processed_rows, Transactions, FILE_PATH)
+
+    with Session(engine) as session:
+        statement = select(Transactions).where(Transactions.source == FILE_PATH)
+        results = session.exec(statement).all()
+
+        assert len(results) == 5
+
+        # Delete all records from test post assertion
+        session.exec(delete(Transactions).where(Transactions.source == FILE_PATH))
+        session.commit()
