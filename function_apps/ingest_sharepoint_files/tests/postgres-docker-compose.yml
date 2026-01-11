@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:18.1
+    ports:
+      - 5431:5432
+    shm_size: 128mb
+
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: transactions
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      
+    volumes:
+     - type: tmpfs
+       target: /dev/shm
+
+    restart: always
+
+  migration:
+    image: python:3.12.12
+
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /app
+
+    volumes:
+      - ../../../database:/app
+    command: >
+      sh -c "
+        export environment=local &&
+        export DB_PASSWORD=postgres &&
+        export DB_HOST='@db:5432' && 
+        pip install -r requirements.txt &&
+        alembic upgrade head
+      "
+
+      

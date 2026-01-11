@@ -98,6 +98,8 @@ Note: Infrastructure deployment and database migrations are separate operations.
 
 - **Database migration** - Use when applying alembic schema changes to database.
 
+10. Add Azure Functions managed identity as a member to the **POSTGRESQL_ADMINS** security group in Entra.
+
 ## Repository secrets
 
 Create and populate the below repository secrets:

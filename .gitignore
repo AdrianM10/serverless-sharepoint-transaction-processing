@@ -10,3 +10,5 @@ database/migrations/versions/.DS_Store
 function_apps/.DS_Store
 function_apps/ingest_sharepoint_files/.DS_Store
 .DS_Store
+__pycache__/*
+function_apps/__pycache__/*

@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+pythonpath = "function_apps/ingest_sharepoint_files"
+testpaths = ["tests"]
+addopts = [
+    "--import-mode=importlib",
+]
