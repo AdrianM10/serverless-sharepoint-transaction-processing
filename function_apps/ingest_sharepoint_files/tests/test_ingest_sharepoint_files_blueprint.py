@@ -3,7 +3,7 @@ import pandas as pd
 import math
 import os
 
-from ingest_sharepoint_files_blueprint import process_transactions
+from ingest_sharepoint_files_blueprint import process_transactions, process_cards
 from models import Transactions, Cards, Users
 from sqlmodel import Session, SQLModel, create_engine, select, delete
 
@@ -40,7 +40,8 @@ def users_data():
 
 @pytest.fixture
 def transactions_data():
-    transactions = pd.read_excel(open(FILE_PATH, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(
+        open(FILE_PATH, "rb"), sheet_name="transactions")
 
     return transactions
 
@@ -125,5 +126,25 @@ def test_process_transactions(session: Session, transactions_data):
 
     assert len(results) == 5
 
+    # Delete all records that were inserted into table
     session.exec(delete(Transactions).where(Transactions.source == FILE_PATH))
+    session.commit()
+
+
+def test_process_cards(session: Session, cards_data):
+
+    statement = select(Cards).where(Cards.source == FILE_PATH)
+    results = session.exec(statement).all()
+
+    assert len(results) == 0
+
+    process_cards(cards_data, FILE_PATH)
+
+    statement = select(Cards).where(Cards.source == FILE_PATH)
+    results = session.exec(statement).all()
+
+    assert len(results) == 5
+
+    # Delete all records that were inserted into table
+    session.exec(delete(Cards).where(Cards.source == FILE_PATH))
     session.commit()
