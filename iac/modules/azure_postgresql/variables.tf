@@ -33,13 +33,13 @@ variable "ip_address" {
 }
 
 variable "psql_server_name" {
-  description = "Postgre SQL Server name"
+  description = "PostgreSQL Server name"
   type        = string
   sensitive   = true
 }
 
 variable "psql_admin_sg_object_id" {
-  description = "Postgre SQL admin Entra security group"
+  description = "PostgreSQL admin Entra security group"
   type        = string
   sensitive   = true
 }
