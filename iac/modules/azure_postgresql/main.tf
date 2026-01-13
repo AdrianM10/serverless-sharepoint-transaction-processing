@@ -67,7 +67,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "pvt_dns_zone_link" {
 }
 
 resource "azurerm_private_endpoint" "postgres_pe" {
-  name                = "sp-txn-postgres-sql-pe"
+  name                = "sp-txn-postgresql-pe"
   resource_group_name = data.azurerm_resource_group.rg.name
   location            = var.location
   subnet_id           = var.endpoints_subnet_id
