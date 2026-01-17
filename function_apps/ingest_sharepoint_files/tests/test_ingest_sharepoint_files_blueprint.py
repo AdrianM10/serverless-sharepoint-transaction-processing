@@ -69,17 +69,18 @@ def generate_cards_data():
             data = {
                 "id": fake.numerify("####"),
                 "client_id": fake.numerify("####"),
-                "brand": fake.credit_card_provider(),
+                "card_brand": fake.credit_card_provider(),
                 "card_type": random.choice(["credit", "debit"]),
-                "credit_card_number": fake.credit_card_number(),
-                "expiry_date": fake.credit_card_expire(date_format='%Y/%m/%d'),
+                "card_number": fake.credit_card_number(),
+                "expires": fake.credit_card_expire(date_format='%Y/%m/%d'),
                 "cvv": fake.credit_card_security_code(),
                 "has_chip": random.choice(["YES", "NO"]),
                 "num_cards_issued": random.randint(1, 3),
                 "credit_limit": random.randrange(1000, 150000),
                 "acct_open_date": fake.date(pattern="%Y/%m/%d"),
                 "year_pin_last_changed": fake.year(),
-                "card_on_dark_web": random.choice(["Yes", "No"])
+                "card_on_dark_web": random.choice(["Yes", "No"]),
+                "source": FILE_PATH
             }
 
             generated_cards.append(data)
@@ -88,6 +89,10 @@ def generate_cards_data():
     
     return number_of_cards_to_generate
 
+
+@pytest.fixture
+def generate_users_data():
+    ...
 
 def test_cards_data(cards_data):
     expected_columns = [
@@ -210,6 +215,18 @@ def test_process_transactions(session: Session, transactions_data):
 def test_bulk_insert(session: Session, generate_cards_data):
 
     number_of_cards = 10000
+    cards = generate_cards_data(number_of_cards)
+    expected_batches = math.ceil(number_of_cards / 1000)
 
-    assert len(generate_cards_data(number_of_cards)) == number_of_cards
+    assert len(cards) == number_of_cards
+    assert expected_batches == 10
+
+    bulk_insert(cards, Cards,FILE_PATH)
+
+    
+
+
+
+
+
 
