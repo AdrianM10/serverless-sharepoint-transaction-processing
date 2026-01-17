@@ -2,14 +2,21 @@ import pytest
 import pandas as pd
 import math
 import os
+import random
 
 from ingest_sharepoint_files_blueprint import (
     process_transactions,
     process_cards,
     process_users,
+    bulk_insert,
 )
 from models import Transactions, Cards, Users
 from sqlmodel import Session, SQLModel, create_engine, select, delete
+
+
+from faker import Faker
+
+fake = Faker()
 
 
 FILE_PATH = "Sample Financial Transactions Dataset.xlsx"
@@ -44,9 +51,42 @@ def users_data():
 
 @pytest.fixture
 def transactions_data():
-    transactions = pd.read_excel(open(FILE_PATH, "rb"), sheet_name="transactions")
+    transactions = pd.read_excel(
+        open(FILE_PATH, "rb"), sheet_name="transactions")
 
     return transactions
+
+
+@pytest.fixture
+def generate_cards_data():
+
+    def number_of_cards_to_generate(number_of_cards):
+
+        generated_cards = []
+
+        for _ in range(number_of_cards):
+
+            data = {
+                "id": fake.numerify("####"),
+                "client_id": fake.numerify("####"),
+                "brand": fake.credit_card_provider(),
+                "card_type": random.choice(["credit", "debit"]),
+                "credit_card_number": fake.credit_card_number(),
+                "expiry_date": fake.credit_card_expire(date_format='%Y/%m/%d'),
+                "cvv": fake.credit_card_security_code(),
+                "has_chip": random.choice(["YES", "NO"]),
+                "num_cards_issued": random.randint(1, 3),
+                "credit_limit": random.randrange(1000, 150000),
+                "acct_open_date": fake.date(pattern="%Y/%m/%d"),
+                "year_pin_last_changed": fake.year(),
+                "card_on_dark_web": random.choice(["Yes", "No"])
+            }
+
+            generated_cards.append(data)
+
+        return generated_cards
+    
+    return number_of_cards_to_generate
 
 
 def test_cards_data(cards_data):
@@ -120,7 +160,6 @@ def test_process_users(session: Session, users_data):
     results = session.exec(statement).all()
 
     assert len(results) == 0
-
     process_users(users_data, FILE_PATH)
     statement = select(Users).where(Users.source == FILE_PATH)
     results = session.exec(statement).all()
@@ -166,3 +205,11 @@ def test_process_transactions(session: Session, transactions_data):
     # Delete all records that were inserted into table
     session.exec(delete(Transactions).where(Transactions.source == FILE_PATH))
     session.commit()
+
+
+def test_bulk_insert(session: Session, generate_cards_data):
+
+    number_of_cards = 10000
+
+    assert len(generate_cards_data(number_of_cards)) == number_of_cards
+
