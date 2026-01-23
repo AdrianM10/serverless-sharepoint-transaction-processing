@@ -227,20 +227,35 @@ def test_transactions_data(transactions_data):
     assert set(transactions_data.columns) == set(expected_columns)
 
 
-def test_process_users(session: Session, users_data):
-    statement = select(Users).where(Users.source == FILE_PATH)
-    results = session.exec(statement).all()
+class TestProcessUsers:
+    def test_process_users(self, session: Session, users_data):
+        statement = select(Users).where(Users.source == FILE_PATH)
+        results = session.exec(statement).all()
 
-    assert len(results) == 0
-    process_users(users_data, FILE_PATH)
-    statement = select(Users).where(Users.source == FILE_PATH)
-    results = session.exec(statement).all()
+        assert len(results) == 0
+        process_users(users_data, FILE_PATH)
+        statement = select(Users).where(Users.source == FILE_PATH)
+        results = session.exec(statement).all()
 
-    assert len(results) == 5
+        assert len(results) == 5
 
-    # Delete all records from table post assert
-    session.exec(delete(Users).where(Users.source == FILE_PATH))
-    session.commit()
+        # Delete all records from table post assert
+        session.exec(delete(Users).where(Users.source == FILE_PATH))
+        session.commit()
+
+    def test_large_number_of_users(self, session: Session, generate_users_data):
+        number_of_users = 2000
+
+        users = pd.DataFrame(generate_users_data(number_of_users))
+
+        process_users(users, FILE_PATH)
+        statement = select(Users).where(Users.source == FILE_PATH)
+        results = session.exec(statement).all()
+
+        assert len(results) == len(users)
+
+        session.exec(delete(Users).where(Users.source == FILE_PATH))
+        session.commit()
 
 
 def test_process_cards(session: Session, cards_data):
