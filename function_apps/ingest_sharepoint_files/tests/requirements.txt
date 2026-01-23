@@ -10,3 +10,5 @@ requests
 azure-identity
 azure-keyvault-secrets
 msgraph-sdk
+Faker
+faker-credit-score
