@@ -258,22 +258,36 @@ class TestProcessUsers:
         session.commit()
 
 
-def test_process_cards(session: Session, cards_data):
-    statement = select(Cards).where(Cards.source == FILE_PATH)
-    results = session.exec(statement).all()
+class testProcessCards:
+    def test_process_cards(self, session: Session, cards_data):
+        statement = select(Cards).where(Cards.source == FILE_PATH)
+        results = session.exec(statement).all()
 
-    assert len(results) == 0
+        assert len(results) == 0
 
-    process_cards(cards_data, FILE_PATH)
+        process_cards(cards_data, FILE_PATH)
 
-    statement = select(Cards).where(Cards.source == FILE_PATH)
-    results = session.exec(statement).all()
+        statement = select(Cards).where(Cards.source == FILE_PATH)
+        results = session.exec(statement).all()
 
-    assert len(results) == 5
+        assert len(results) == 5
 
-    # Delete all records that were inserted into table
-    session.exec(delete(Cards).where(Cards.source == FILE_PATH))
-    session.commit()
+        # Delete all records that were inserted into table
+        session.exec(delete(Cards).where(Cards.source == FILE_PATH))
+        session.commit()
+
+    def test_large_number_of_cards(self, session: Session, generate_cards_data):
+        number_of_cards = 6150
+        cards = pd.DataFrame(generate_cards_data(number_of_cards))
+
+        process_cards(cards, FILE_PATH)
+        statement = select(Cards).where(Cards.source == FILE_PATH)
+        results = session.exec(statement).all()
+
+        assert len(results) == len(cards)
+
+        session.exec(delete(Cards).where(Cards.source == FILE_PATH))
+        session.commit()
 
 
 class TestProcessTransactions:
