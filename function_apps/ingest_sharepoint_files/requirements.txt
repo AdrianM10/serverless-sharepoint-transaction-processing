@@ -10,7 +10,7 @@ greenlet
 sqlmodel
 alembic
 requests
-azure-identity
+azure-identity 
 azure-keyvault-secrets
 msgraph-sdk
 
