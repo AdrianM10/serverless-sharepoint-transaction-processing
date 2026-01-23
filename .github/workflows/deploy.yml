@@ -96,7 +96,7 @@ jobs:
           DB_HOST: "@localhost:5432"
         run: |
           pip install -r requirements.txt
-          pytest
+          pytest -v
 
   infrastructure:
     needs: test
